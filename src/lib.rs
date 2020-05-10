@@ -67,7 +67,7 @@ mod render;
 
 pub use self::{
     game_state::GameState,
-    render::{ModelHandle, Window},
+    render::{ModelData, ModelHandle, Window},
 };
 
 /// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.

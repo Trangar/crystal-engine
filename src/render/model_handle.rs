@@ -7,11 +7,17 @@ use std::sync::{
     Arc,
 };
 
+/// Data of a model. This is behind an `Arc<RwLock<>>` so that the engine can keep a copy and check the latest values.
+///
+/// For an example on how to use this, see the example in the root of this module. This is the value passed in `ModelHandle::modify`.
 pub struct ModelData {
     pub(crate) id: u64,
     pub(crate) model: Arc<Model>,
+    /// The current position in the world that this model exists at.
     pub position: Vector3<f32>,
+    /// The rotation of this model, in euler angles.
     pub rotation: Euler<Rad<f32>>,
+    /// The scale of this model.
     pub scale: f32,
 }
 
