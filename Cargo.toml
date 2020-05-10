@@ -1,6 +1,6 @@
 [package]
 name = "crystal-engine"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Trangar <victor.koenders@gmail.com>"]
 readme = "readme.md"
 description = "A simple 3D engine"

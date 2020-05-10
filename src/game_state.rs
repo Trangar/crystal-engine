@@ -73,11 +73,15 @@ impl GameState {
     }
 }
 
+/// The state of the keyboard. This can be used to check which keys are pressed during the current frame.
+///
+/// Note: when handling [Game::keydown](../trait.Game.html#method.keydown), the [GameState] will be updated *before* the keydown method is called.
 pub struct KeyboardState {
     pub(crate) pressed: HashSet<VirtualKeyCode>,
 }
 
 impl KeyboardState {
+    /// Check if the given key is pressed.
     pub fn is_pressed(&self, key: VirtualKeyCode) -> bool {
         self.pressed.contains(&key)
     }

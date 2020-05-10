@@ -58,22 +58,35 @@ pub use self::{
     render::{ModelHandle, Window},
 };
 
+/// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.
+pub mod state {
+    pub use crate::game_state::KeyboardState;
+}
+
 pub use winit::event::{VirtualKeyCode, WindowEvent};
 
 /// The entry point of the game implementation.
+///
+/// In your game you will have to implement this trait for your own Game object. See the main module documentation for an example.
 pub trait Game {
-    /// Create a new instance of the game
+    /// Create a new instance of the game. This will be called exactly once, whenever the game window is created.
     fn init(state: &mut GameState) -> Self;
+    /// Update the game. This will be called every frame. Use this to implement your game logic.
+    fn update(&mut self, state: &mut GameState);
     /// Checks if the game can shut down. This is called when a player tries to close the window by clicking X or pressing alt+f4
     fn can_shutdown(&mut self, _state: &mut GameState) -> bool {
         true
     }
     /// Triggered when a winit event is received.
     fn event(&mut self, _state: &mut GameState, _event: &WindowEvent) {}
-    /// Triggered when a key is pressed
+    /// Triggered when a key is pressed.
+    ///
+    /// Note that the [GameState.keyboard](struct.GameState.html#structfield.keyboard) is updated *before* this method is called.
+    /// This means that `state.keyboard.is_pressed(key)` will always return `true`.
     fn keydown(&mut self, _state: &mut GameState, _key: VirtualKeyCode) {}
-    /// Triggered when a key is released
+    /// Triggered when a key is released.
+    ///
+    /// Note that the [GameState.keyboard](struct.GameState.html#structfield.keyboard) is updated *before* this method is called.
+    /// This means that `state.keyboard.is_pressed(key)` will always return `false`.
     fn keyup(&mut self, _state: &mut GameState, _key: VirtualKeyCode) {}
-    /// Update the game
-    fn update(&mut self, state: &mut GameState);
 }
