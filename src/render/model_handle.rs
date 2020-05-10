@@ -15,6 +15,16 @@ pub struct ModelData {
     pub scale: f32,
 }
 
+impl std::fmt::Debug for ModelData {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fmt.debug_struct("ModelData")
+            .field("position", &self.position)
+            .field("rotation", &self.rotation)
+            .field("scale", &self.scale)
+            .finish()
+    }
+}
+
 impl ModelData {
     pub(self) fn new(model: Arc<Model>) -> (u64, Arc<RwLock<Self>>) {
         static ID: AtomicU64 = AtomicU64::new(0);
@@ -31,9 +41,9 @@ impl ModelData {
         )
     }
     pub(crate) fn matrix(&self) -> Matrix4<f32> {
-        Matrix4::from(self.rotation)
+        Matrix4::from_translation(self.position)
+            * Matrix4::from(self.rotation)
             * Matrix4::from_scale(self.scale)
-            * Matrix4::from_translation(self.position)
     }
 }
 
@@ -112,9 +122,17 @@ impl ModelHandle {
 
 impl Clone for ModelHandle {
     fn clone(&self) -> Self {
-        let model = self.data.read().model.clone();
+        let data = self.data.read();
+        let model = data.model.clone();
         let (new_handle, new_id, new_data) =
             ModelHandle::from_model(model, self.message_handle.clone());
+
+        {
+            let mut new_data = new_data.write();
+            new_data.position = data.position;
+            new_data.rotation = data.rotation;
+            new_data.scale = data.scale;
+        }
 
         // This sender only errors when the receiver is dropped
         // which should only happen when the game is shutting down
