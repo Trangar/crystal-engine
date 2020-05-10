@@ -1,0 +1,23 @@
+[package]
+name = "crystal-engine"
+version = "0.1.0"
+authors = ["Trangar <victor.koenders@gmail.com>"]
+readme = "readme.md"
+description = "A simple 3D engine"
+license = "MIT"
+repository = "https://github.com/Trangar/crystal-engine"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vulkano = "0.18.0"
+vulkano-win = "0.18.0"
+vulkano-shaders = "0.18.0"
+png = "0.16.3"
+winit = "0.22.1"
+cgmath = "0.17.0"
+rand = "0.7.3"
+obj = { version = "0.9.1", features = ["genmesh"] }
+genmesh = "0.6.2"
+parking_lot = "0.10.2"
