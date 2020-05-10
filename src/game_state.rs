@@ -2,7 +2,7 @@ use crate::render::{Model, ModelData, ModelHandle, ModelHandleMessage};
 use cgmath::{Matrix4, SquareMatrix};
 use parking_lot::RwLock;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{mpsc::Sender, Arc},
 };
 use vulkano::device::Device;
@@ -12,7 +12,7 @@ use winit::event::VirtualKeyCode;
 pub struct GameState {
     device: Arc<Device>,
     // models: Vec<Arc<Model>>,
-    pub(crate) model_handles: Vec<Arc<RwLock<ModelData>>>,
+    pub(crate) model_handles: HashMap<u64, Arc<RwLock<ModelData>>>,
     model_handle_sender: Sender<ModelHandleMessage>,
     pub(crate) is_running: bool,
     /// The matrix of the camera currently in use.
@@ -27,7 +27,7 @@ impl GameState {
     pub(crate) fn new(device: Arc<Device>, sender: Sender<ModelHandleMessage>) -> Self {
         Self {
             device,
-            model_handles: Vec::new(),
+            model_handles: HashMap::new(),
             model_handle_sender: sender,
             is_running: true,
             // models: Vec::new(),
@@ -38,8 +38,12 @@ impl GameState {
         }
     }
 
+    pub(crate) fn add_model_data(&mut self, new_id: u64, handle: Arc<RwLock<ModelData>>) {
+        self.model_handles.insert(new_id, handle);
+    }
+
     pub(crate) fn remove_model_handle(&mut self, handle: u64) {
-        self.model_handles.retain(|h| h.read().id != handle);
+        self.model_handles.remove(&handle);
     }
 
     /// Exit the game. Once this function is called, it cannot be cancelled. This does not confirm with [Game::can_shutdown](trait.Game.html#method.can_shutdown).
@@ -66,9 +70,9 @@ impl GameState {
     }
 
     fn add_model(&mut self, model: Arc<Model>) -> ModelHandle {
-        let (handle, data) = ModelHandle::from_model(model, self.model_handle_sender.clone());
+        let (handle, id, data) = ModelHandle::from_model(model, self.model_handle_sender.clone());
         // self.models.push(model);
-        self.model_handles.push(data);
+        self.model_handles.insert(id, data);
         handle
     }
 }

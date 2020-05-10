@@ -99,7 +99,9 @@ impl<GAME: Game + 'static> Window<GAME> {
         while let Ok(msg) = self.model_handle_receiver.try_recv() {
             match msg {
                 ModelHandleMessage::Dropped(id) => self.game_state.remove_model_handle(id),
-                ModelHandleMessage::NewClone(data) => self.game_state.model_handles.push(data),
+                ModelHandleMessage::NewClone(new_id, data) => {
+                    self.game_state.add_model_data(new_id, data)
+                }
             }
         }
     }
@@ -110,7 +112,7 @@ impl<GAME: Game + 'static> Window<GAME> {
         let handles: Vec<_> = self
             .game_state
             .model_handles
-            .iter()
+            .values()
             .map(|handle| {
                 let handle = handle.read();
                 (handle.model.clone(), handle.matrix())

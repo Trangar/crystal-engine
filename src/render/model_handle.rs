@@ -16,16 +16,19 @@ pub struct ModelData {
 }
 
 impl ModelData {
-    pub(self) fn new(model: Arc<Model>) -> Arc<RwLock<Self>> {
+    pub(self) fn new(model: Arc<Model>) -> (u64, Arc<RwLock<Self>>) {
         static ID: AtomicU64 = AtomicU64::new(0);
         let id = ID.fetch_add(1, Ordering::Relaxed);
-        Arc::new(RwLock::new(Self {
+        (
             id,
-            model,
-            position: Vector3::zero(),
-            rotation: Euler::new(Rad(0.0), Rad(0.0), Rad(0.0)),
-            scale: 0.0,
-        }))
+            Arc::new(RwLock::new(Self {
+                id,
+                model,
+                position: Vector3::zero(),
+                rotation: Euler::new(Rad(0.0), Rad(0.0), Rad(0.0)),
+                scale: 0.0,
+            })),
+        )
     }
     pub(crate) fn matrix(&self) -> Matrix4<f32> {
         Matrix4::from(self.rotation)
@@ -48,13 +51,14 @@ impl ModelHandle {
     pub(crate) fn from_model(
         model: Arc<Model>,
         message_handle: Sender<ModelHandleMessage>,
-    ) -> (Self, Arc<RwLock<ModelData>>) {
-        let data = ModelData::new(model);
+    ) -> (Self, u64, Arc<RwLock<ModelData>>) {
+        let (id, data) = ModelData::new(model);
         (
             Self {
                 message_handle,
                 data: data.clone(),
             },
+            id,
             data,
         )
     }
@@ -108,19 +112,18 @@ impl ModelHandle {
 
 impl Clone for ModelHandle {
     fn clone(&self) -> Self {
-        let data = self.data.clone();
+        let model = self.data.read().model.clone();
+        let (new_handle, new_id, new_data) =
+            ModelHandle::from_model(model, self.message_handle.clone());
 
         // This sender only errors when the receiver is dropped
         // which should only happen when the game is shutting down
         // so we ignore the error
         let _ = self
             .message_handle
-            .send(ModelHandleMessage::NewClone(Arc::clone(&data)));
+            .send(ModelHandleMessage::NewClone(new_id, new_data));
 
-        Self {
-            message_handle: self.message_handle.clone(),
-            data,
-        }
+        new_handle
     }
 }
 
@@ -136,6 +139,6 @@ impl Drop for ModelHandle {
 }
 
 pub(crate) enum ModelHandleMessage {
-    NewClone(Arc<RwLock<ModelData>>),
+    NewClone(u64, Arc<RwLock<ModelData>>),
     Dropped(u64),
 }
