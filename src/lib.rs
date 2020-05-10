@@ -4,7 +4,7 @@
 //!
 //! ```no_run
 //! use cgmath::{Matrix4, Point3, Rad, Vector3};
-//! use crystal_engine::{GameState, ModelHandle, Window};
+//! use crystal_engine::{GameState, ModelHandle, Window, VirtualKeyCode};
 //!
 //! fn main() {
 //!     // Create a new instance of your game and run it
@@ -39,10 +39,22 @@
 //!         Self { model }
 //!     }
 //!
-//!     fn update(&mut self, _state: &mut GameState) {
-//!         // This will make our model spin
+//!     fn keydown(&mut self, state: &mut GameState, key: VirtualKeyCode) {
+//!         // Exit the game when the user hits escape
+//!         if key == VirtualKeyCode::Escape {
+//!             state.terminate_game();
+//!         }
+//!     }
+//!
+//!     fn update(&mut self, state: &mut GameState) {
 //!         self.model.modify(|data| {
-//!             data.rotation.y += Rad(0.05);
+//!             // Rotate either left or right, based on what the user has pressed
+//!             if state.keyboard.is_pressed(VirtualKeyCode::A) {
+//!                 data.rotation.y -= Rad(0.05);
+//!             }
+//!             if state.keyboard.is_pressed(VirtualKeyCode::D) {
+//!                 data.rotation.y += Rad(0.05);
+//!             }
 //!         });
 //!     }
 //! }
