@@ -42,7 +42,7 @@ impl ModelData {
                 model,
                 position: Vector3::zero(),
                 rotation: Euler::new(Rad(0.0), Rad(0.0), Rad(0.0)),
-                scale: 0.0,
+                scale: 1.0,
             })),
         )
     }
