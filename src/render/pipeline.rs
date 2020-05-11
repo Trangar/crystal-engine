@@ -83,7 +83,7 @@ impl RenderPipeline {
                 .vertex_shader(vs.main_entry_point(), ())
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
-                .cull_mode_front()
+                //.cull_mode_front()
                 .blend_alpha_blending()
                 .depth_stencil_simple_depth()
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
@@ -244,7 +244,7 @@ impl RenderPipeline {
         &mut self,
         camera: Matrix4<f32>,
         dimensions: [f32; 2],
-        models: impl Iterator<Item = (Arc<Model>, Matrix4<f32>)>,
+        models: impl Iterator<Item = (Arc<Model>, Matrix4<f32>, Vec<Matrix4<f32>>)>,
         directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
         callback: impl FnOnce(),
     ) {
@@ -276,41 +276,30 @@ impl RenderPipeline {
             lightCount: directional_lights.0,
         };
 
-        for (model, matrix) in models {
-            data.world = matrix.into();
-            let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
+        for (model, matrix, group_matrices) in models {
+            if model.indices.is_empty() {
+                data.world = matrix.into();
+                let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
 
-            // TODO: We should probably cache the set in a pool
-            // From the documentation: "Creating a persistent descriptor set allocates from a pool,
-            // and can't be modified once created. You are therefore encouraged to create them at
-            // initialization and not the during performance-critical paths."
-            // 1. Create an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPool.html
-            // 2. Import this trait: https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/trait.DescriptorPool.html
-            // 3. Allocate an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPoolAlloc.html and store it in modelhandle.
-            // 4. replace .build() with .build_with_pool:
-            //    https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.PersistentDescriptorSetBuilder.html#method.build_with_pool
-            let set = Arc::new(
-                PersistentDescriptorSet::start(layout.clone())
-                    .add_buffer(uniform_buffer_subbuffer)
-                    .unwrap()
-                    .add_sampled_image(self.test_image.clone(), self.sampler.clone())
-                    .unwrap()
-                    .build()
-                    .unwrap(),
-            );
+                // TODO: We should probably cache the set in a pool
+                // From the documentation: "Creating a persistent descriptor set allocates from a pool,
+                // and can't be modified once created. You are therefore encouraged to create them at
+                // initialization and not the during performance-critical paths."
+                // 1. Create an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPool.html
+                // 2. Import this trait: https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/trait.DescriptorPool.html
+                // 3. Allocate an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPoolAlloc.html and store it in modelhandle.
+                // 4. replace .build() with .build_with_pool:
+                //    https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.PersistentDescriptorSetBuilder.html#method.build_with_pool
+                let set = Arc::new(
+                    PersistentDescriptorSet::start(layout.clone())
+                        .add_buffer(uniform_buffer_subbuffer)
+                        .unwrap()
+                        .add_sampled_image(self.test_image.clone(), self.sampler.clone())
+                        .unwrap()
+                        .build()
+                        .unwrap(),
+                );
 
-            if let Some(indices) = model.indices.as_ref() {
-                command_buffer_builder = command_buffer_builder
-                    .draw_indexed(
-                        self.pipeline.clone(),
-                        &self.dynamic_state,
-                        vec![model.vertex_buffer.clone()],
-                        indices.clone(),
-                        set,
-                        (),
-                    )
-                    .unwrap();
-            } else {
                 command_buffer_builder = command_buffer_builder
                     .draw(
                         self.pipeline.clone(),
@@ -320,6 +309,41 @@ impl RenderPipeline {
                         (),
                     )
                     .unwrap();
+            } else {
+                for (i, index) in model.indices.iter().enumerate() {
+                    data.world = (matrix * group_matrices[i]).into();
+                    let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
+
+                    // TODO: We should probably cache the set in a pool
+                    // From the documentation: "Creating a persistent descriptor set allocates from a pool,
+                    // and can't be modified once created. You are therefore encouraged to create them at
+                    // initialization and not the during performance-critical paths."
+                    // 1. Create an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPool.html
+                    // 2. Import this trait: https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/trait.DescriptorPool.html
+                    // 3. Allocate an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPoolAlloc.html and store it in modelhandle.
+                    // 4. replace .build() with .build_with_pool:
+                    //    https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.PersistentDescriptorSetBuilder.html#method.build_with_pool
+                    let set = Arc::new(
+                        PersistentDescriptorSet::start(layout.clone())
+                            .add_buffer(uniform_buffer_subbuffer)
+                            .unwrap()
+                            .add_sampled_image(self.test_image.clone(), self.sampler.clone())
+                            .unwrap()
+                            .build()
+                            .unwrap(),
+                    );
+
+                    command_buffer_builder = command_buffer_builder
+                        .draw_indexed(
+                            self.pipeline.clone(),
+                            &self.dynamic_state,
+                            vec![model.vertex_buffer.clone()],
+                            index.clone(),
+                            set.clone(),
+                            (),
+                        )
+                        .unwrap();
+                }
             }
         }
 

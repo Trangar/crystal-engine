@@ -1,5 +1,5 @@
 use super::Model;
-use cgmath::{Euler, Matrix4, Rad, Vector3, Zero};
+use cgmath::{Euler, Matrix4, Rad, SquareMatrix, Vector3, Zero};
 use parking_lot::RwLock;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
@@ -19,6 +19,8 @@ pub struct ModelData {
     pub rotation: Euler<Rad<f32>>,
     /// The scale of this model.
     pub scale: f32,
+
+    pub group_matrices: Vec<Matrix4<f32>>,
 }
 
 impl std::fmt::Debug for ModelData {
@@ -35,6 +37,7 @@ impl ModelData {
     pub(self) fn new(model: Arc<Model>) -> (u64, Arc<RwLock<Self>>) {
         static ID: AtomicU64 = AtomicU64::new(0);
         let id = ID.fetch_add(1, Ordering::Relaxed);
+        let index_group_count = model.indices.len();
         (
             id,
             Arc::new(RwLock::new(Self {
@@ -43,6 +46,9 @@ impl ModelData {
                 position: Vector3::zero(),
                 rotation: Euler::new(Rad(0.0), Rad(0.0), Rad(0.0)),
                 scale: 1.0,
+                group_matrices: (0..index_group_count)
+                    .map(|_| Matrix4::identity())
+                    .collect(),
             })),
         )
     }

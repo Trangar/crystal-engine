@@ -1,14 +1,45 @@
 use super::Vertex;
+use cgmath::Vector3;
 use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     device::Device,
 };
 
+#[derive(Debug)]
+struct MinMax {
+    min: Vector3<f32>,
+    max: Vector3<f32>,
+}
+
+impl Default for MinMax {
+    fn default() -> Self {
+        const LARGE: f32 = 10000.0;
+        const SMALL: f32 = -10000.0;
+        Self {
+            min: Vector3::new(LARGE, LARGE, LARGE),
+            max: Vector3::new(SMALL, SMALL, SMALL),
+        }
+    }
+}
+
+impl MinMax {
+    pub fn add(&mut self, point: [f32; 3]) {
+        self.min.x = self.min.x.min(point[0]);
+        self.max.x = self.max.x.max(point[0]);
+
+        self.min.y = self.min.y.min(point[1]);
+        self.max.y = self.max.y.max(point[1]);
+
+        self.min.z = self.min.z.min(point[2]);
+        self.max.z = self.max.z.max(point[2]);
+    }
+}
+
 // TODO: Make it so that developers can create their own models/vertices?
 pub struct Model {
     pub(super) vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
-    pub(super) indices: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+    pub(super) indices: Vec<Arc<CpuAccessibleBuffer<[u32]>>>,
 }
 
 impl Model {
@@ -18,23 +49,32 @@ impl Model {
         let mut obj = obj::Obj::<genmesh::Polygon<obj::IndexTuple>>::load(file.as_ref())
             .expect("Could not load obj");
         obj.load_mtls().unwrap();
+
         let mut vertices = Vec::with_capacity(obj.position.len());
+        let mut minmax = MinMax::default();
         for (index, position) in obj.position.into_iter().enumerate() {
+            minmax.add(position);
             vertices.push(Vertex {
                 position_in: position,
                 tex_coord_in: obj.texture.get(index).cloned().unwrap_or([-1.0, -1.0]),
                 normal_in: obj.normal.get(index).cloned().unwrap_or([0.0, 0.0, 0.0]),
             });
         }
-        let first_object = obj.objects.into_iter().next().unwrap();
-        let first_group = first_object.groups.into_iter().next().unwrap();
-        let mut indices: Vec<u32> = Vec::new();
-        for poly in first_group.polys {
-            poly.emit_triangles(|triangle| {
-                indices.push(triangle.x.0 as u32);
-                indices.push(triangle.y.0 as u32);
-                indices.push(triangle.z.0 as u32);
-            });
+
+        let mut indices: Vec<Vec<u32>> =
+            Vec::with_capacity(obj.objects.iter().map(|o| o.groups.len()).sum());
+        for object in obj.objects {
+            for group in object.groups {
+                let mut index_group = Vec::new();
+                for poly in group.polys {
+                    poly.emit_triangles(|triangle| {
+                        index_group.push(triangle.x.0 as u32);
+                        index_group.push(triangle.y.0 as u32);
+                        index_group.push(triangle.z.0 as u32);
+                    });
+                }
+                indices.push(index_group);
+            }
         }
 
         Self::from_vertices(device, vertices.into_iter(), indices.into_iter())
@@ -83,23 +123,28 @@ impl Model {
             normal_in: [0.0, 0.0, 1.0],
             tex_coord_in: [1.0, 0.0],
         });
-        let indices = &[0, 1, 2, 0, 2, 3];
+        let indices = vec![0, 1, 2, 0, 2, 3];
 
-        Self::from_vertices(device, vertices.into_iter(), indices.iter().copied())
+        Self::from_vertices(device, vertices.into_iter(), Some(indices))
     }
+
     fn from_vertices(
         device: Arc<Device>,
         vertices: impl ExactSizeIterator<Item = Vertex>,
-        indices: impl ExactSizeIterator<Item = u32>,
+        indices: impl IntoIterator<Item = Vec<u32>>,
     ) -> Arc<Self> {
-        let indices = if indices.len() == 0 {
-            None
-        } else {
-            Some(
-                CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), false, indices)
-                    .unwrap(),
-            )
-        };
+        let indices = indices
+            .into_iter()
+            .map(|i| {
+                CpuAccessibleBuffer::from_iter(
+                    device.clone(),
+                    BufferUsage::all(),
+                    false,
+                    i.into_iter(),
+                )
+                .unwrap()
+            })
+            .collect();
 
         let vertex_buffer =
             CpuAccessibleBuffer::from_iter(device, BufferUsage::all(), false, vertices).unwrap();

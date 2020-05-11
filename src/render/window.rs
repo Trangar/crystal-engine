@@ -115,7 +115,11 @@ impl<GAME: Game + 'static> Window<GAME> {
             .values()
             .map(|handle| {
                 let handle = handle.read();
-                (handle.model.clone(), handle.matrix())
+                (
+                    handle.model.clone(),
+                    handle.matrix(),
+                    handle.group_matrices.clone(),
+                )
             })
             .collect();
 
