@@ -60,7 +60,7 @@
 //! }
 //! ```
 
-#![warn(missing_docs, clippy::broken_links)]
+#![warn(missing_docs)]
 
 mod game_state;
 mod render;

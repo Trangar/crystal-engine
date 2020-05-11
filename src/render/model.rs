@@ -61,35 +61,31 @@ impl Model {
             vec![].into_iter(),
         )
     }
-     pub fn new_square(device: Arc<Device>) -> Arc<Self> {
-         let mut vertices = Vec::new();
-         vertices.push(Vertex {
-             position_in: [-0.5, -0.5, 0.0],
-             normal_in: [0.0, 0.0, 1.0],
-             tex_coord_in: [1.0, 1.0],
-         });
-         vertices.push(Vertex {
-             position_in: [0.5, -0.5, 0.0],
-             normal_in: [0.0, 0.0, 1.0],
-             tex_coord_in: [0.0, 1.0],
-         });
-         vertices.push(Vertex {
-             position_in: [0.5, 0.5, 0.0],
-             normal_in: [0.0, 0.0, 1.0],
-             tex_coord_in: [0.0, 0.0],
-         });
-         vertices.push(Vertex {
-             position_in: [-0.5, 0.5, 0.0],
-             normal_in: [0.0, 0.0, 1.0],
-             tex_coord_in: [1.0, 0.0],
-         });
-         let indices = &[0, 1, 2, 0, 2, 3];
-        
-        Self::from_vertices(
-            device,
-            vertices.into_iter(),
-            indices.into_iter().map(|i| *i),
-        )
+    pub fn new_square(device: Arc<Device>) -> Arc<Self> {
+        let mut vertices = Vec::new();
+        vertices.push(Vertex {
+            position_in: [-0.5, -0.5, 0.0],
+            normal_in: [0.0, 0.0, 1.0],
+            tex_coord_in: [1.0, 1.0],
+        });
+        vertices.push(Vertex {
+            position_in: [0.5, -0.5, 0.0],
+            normal_in: [0.0, 0.0, 1.0],
+            tex_coord_in: [0.0, 1.0],
+        });
+        vertices.push(Vertex {
+            position_in: [0.5, 0.5, 0.0],
+            normal_in: [0.0, 0.0, 1.0],
+            tex_coord_in: [0.0, 0.0],
+        });
+        vertices.push(Vertex {
+            position_in: [-0.5, 0.5, 0.0],
+            normal_in: [0.0, 0.0, 1.0],
+            tex_coord_in: [1.0, 0.0],
+        });
+        let indices = &[0, 1, 2, 0, 2, 3];
+
+        Self::from_vertices(device, vertices.into_iter(), indices.iter().copied())
     }
     fn from_vertices(
         device: Arc<Device>,
@@ -121,9 +117,11 @@ pub mod vs {
         src: "#version 450
 
 layout(location = 0) in vec3 position_in;
-layout(location = 1) in vec2 tex_coord_in;
+layout(location = 1) in vec3 normal_in;
+layout(location = 2) in vec2 tex_coord_in;
 
-layout(location = 0) out vec2 tex_coord;
+layout(location = 0) out vec2 fragment_tex_coord;
+layout(location = 1) out vec3 fragment_normal;
 
 layout(set = 0, binding = 0) uniform Data {
     mat4 world;
@@ -134,7 +132,8 @@ layout(set = 0, binding = 0) uniform Data {
 void main() {
     mat4 worldview = uniforms.view * uniforms.world;
     gl_Position = uniforms.proj * worldview * vec4(position_in, 1.0);
-    tex_coord = tex_coord_in;
+    fragment_tex_coord = tex_coord_in;
+    fragment_normal = normal_in;
 }
 "
     }
@@ -145,18 +144,31 @@ pub mod fs {
         ty: "fragment",
         src: "#version 450
 
-layout(location = 0) in vec2 tex_coord;
+layout(location = 0) in vec2 fragment_tex_coord;
+layout(location = 1) in vec3 fragment_normal;
 
 layout(location = 0) out vec4 f_color;
 
 layout(set = 0, binding = 1) uniform sampler2D tex;
 
+const vec3 LIGHT = vec3(0.0, 10.0, 0.0);
+const float MIN_BRIGHTNESS = 0.5;
+
 void main() {
-    if(tex_coord.x < 0.0 && tex_coord.y < 0.0) {
+    if(fragment_tex_coord.x < 0.0 && fragment_tex_coord.y < 0.0) {
         f_color = vec4(1.0, 0.0, 0.0, 1.0);
     } else {
-        f_color = texture(tex, tex_coord);
+        f_color = texture(tex, fragment_tex_coord);
     }
+    float brightness = dot(normalize(fragment_normal), normalize(LIGHT));
+    brightness = MIN_BRIGHTNESS + (brightness * (1.0 - MIN_BRIGHTNESS));
+
+    f_color = vec4(
+        f_color.x * brightness,
+        f_color.y * brightness,
+        f_color.z * brightness,
+        f_color.w
+    );
 }
 "
     }

@@ -104,7 +104,7 @@ impl ModelHandle {
     /// ```no_run
     /// # use crystal_engine::*;
     /// # let mut game_state: GameState = unsafe { std::mem::zeroed() };
-    /// let handle: ModelHandle = game_state.create_triangle_model();
+    /// let handle: ModelHandle = game_state.create_triangle();
     /// let scale = handle.read(|d| d.scale);
     /// ```
     pub fn read<T>(&self, cb: impl FnOnce(&ModelData) -> T) -> T {
@@ -117,7 +117,7 @@ impl ModelHandle {
     /// ```no_run
     /// # use crystal_engine::*;
     /// # let mut game_state: GameState = unsafe { std::mem::zeroed() };
-    /// let handle: ModelHandle = game_state.create_triangle_model();
+    /// let handle: ModelHandle = game_state.create_triangle();
     /// handle.modify(|d| d.scale = 0.0 );
     /// ```
     pub fn modify<T>(&self, cb: impl FnOnce(&mut ModelData) -> T) -> T {
