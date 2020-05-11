@@ -133,7 +133,8 @@ void main() {
     mat4 worldview = uniforms.view * uniforms.world;
     gl_Position = uniforms.proj * worldview * vec4(position_in, 1.0);
     fragment_tex_coord = tex_coord_in;
-    fragment_normal = normal_in;
+
+    fragment_normal = transpose(inverse(mat3(worldview))) * normal_in;
 }
 "
     }
@@ -152,16 +153,16 @@ layout(location = 0) out vec4 f_color;
 layout(set = 0, binding = 1) uniform sampler2D tex;
 
 const vec3 LIGHT = vec3(0.0, 10.0, 0.0);
-const float MIN_BRIGHTNESS = 0.5;
+const float MIN_BRIGHTNESS = 0.7;
 
 void main() {
     if(fragment_tex_coord.x < 0.0 && fragment_tex_coord.y < 0.0) {
-        f_color = vec4(1.0, 0.0, 0.0, 1.0);
+        f_color = vec4(0.7, 0.7, 0.7, 1.0);
     } else {
         f_color = texture(tex, fragment_tex_coord);
     }
-    float brightness = dot(normalize(fragment_normal), normalize(LIGHT));
-    brightness = MIN_BRIGHTNESS + (brightness * (1.0 - MIN_BRIGHTNESS));
+    float darkness = dot(normalize(fragment_normal), normalize(LIGHT));
+    float brightness = 1.0 - (darkness * (1.0 - MIN_BRIGHTNESS));
 
     f_color = vec4(
         f_color.x * brightness,

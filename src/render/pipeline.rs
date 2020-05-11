@@ -57,12 +57,12 @@ impl RenderPipeline {
                         format: format,
                         samples: 1,
                     },
-            depth: {
-            load: Clear,
-            store: DontCare,
-            format: Format::D16Unorm,
-            samples: 1,
-            }
+                    depth: {
+                        load: Clear,
+                        store: DontCare,
+                        format: Format::D16Unorm,
+                        samples: 1,
+                    }
                 },
                 pass: {
                     color: [color],
@@ -85,6 +85,7 @@ impl RenderPipeline {
                 .fragment_shader(fs.main_entry_point(), ())
                 .cull_mode_front()
                 .blend_alpha_blending()
+                .depth_stencil_simple_depth()
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                 .build(device.clone())
                 .unwrap(),
