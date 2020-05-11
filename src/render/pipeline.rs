@@ -4,18 +4,20 @@ use std::sync::Arc;
 use sync::FlushError;
 use vulkano::{
     buffer::CpuBufferPool,
-    command_buffer::{AutoCommandBufferBuilder, DynamicState},
+    command_buffer::{AutoCommandBufferBuilder, AutoCommandBuffer, DynamicState, CommandBufferExecFuture},
     descriptor::descriptor_set::PersistentDescriptorSet,
     device::{Device, Queue},
     framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass},
-    image::SwapchainImage,
+    image::{Dimensions, ImmutableImage, SwapchainImage},
     instance::PhysicalDevice,
     pipeline::{viewport::Viewport, GraphicsPipeline, GraphicsPipelineAbstract},
     swapchain::{
         AcquireError, ColorSpace, FullscreenExclusive, PresentMode, Surface, SurfaceTransform,
         Swapchain, SwapchainAcquireFuture, SwapchainCreationError,
     },
-    sync::{self, GpuFuture},
+    sampler::{Sampler, Filter, MipmapMode, SamplerAddressMode},
+    sync::{self, GpuFuture, NowFuture},
+    format::R8G8B8A8Srgb,
 };
 
 pub struct RenderPipeline {
@@ -25,11 +27,13 @@ pub struct RenderPipeline {
     pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
     dynamic_state: DynamicState,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
+    test_image: Arc<ImmutableImage<R8G8B8A8Srgb>>,
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     uniform_buffer: CpuBufferPool<model_vs::ty::Data>,
     swapchain: Arc<Swapchain<winit::window::Window>>,
     swapchain_images: Vec<Arc<SwapchainImage<winit::window::Window>>>,
     swapchain_needs_refresh: bool,
+    sampler: Arc<Sampler>,
 }
 
 impl RenderPipeline {
@@ -71,6 +75,7 @@ impl RenderPipeline {
                 .vertex_shader(vs.main_entry_point(), ())
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
+                .blend_alpha_blending()
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                 .build(device.clone())
                 .unwrap(),
@@ -104,6 +109,14 @@ impl RenderPipeline {
         let framebuffers =
             Self::build_framebuffers(&swapchain_images, render_pass.clone(), &mut dynamic_state);
 
+
+        let sampler = Sampler::new(device.clone(), Filter::Linear, Filter::Linear,
+            MipmapMode::Nearest, SamplerAddressMode::Repeat, SamplerAddressMode::Repeat,
+                    SamplerAddressMode::Repeat, 0.0, 1.0, 0.0, 0.0).unwrap();
+
+	let (test_image, fut) = test_load_texture(queue.clone());
+	fut.then_signal_fence_and_flush().unwrap().wait(None).unwrap();
+
         Self {
             device,
             queue,
@@ -116,6 +129,8 @@ impl RenderPipeline {
             swapchain_images,
             swapchain_needs_refresh: false,
             dimensions,
+	    test_image,
+            sampler,
         }
     }
 
@@ -227,9 +242,18 @@ impl RenderPipeline {
             };
             let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
 
+            // TODO: We should probably cache the set in a pool
+            // From the documentation: "Creating a persistent descriptor set allocates from a pool,
+            // and can't be modified once created. You are therefore encouraged to create them at
+            // initialization and not the during performance-critical paths."
+            // 1. Create an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPool.html
+            // 2. Import this trait: https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/trait.DescriptorPool.html
+            // 3. Allocate an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPoolAlloc.html and store it in modelhandle.
             let set = Arc::new(
                 PersistentDescriptorSet::start(layout.clone())
                     .add_buffer(uniform_buffer_subbuffer)
+                    .unwrap()
+                    .add_sampled_image(self.test_image.clone(), self.sampler.clone())
                     .unwrap()
                     .build()
                     .unwrap(),
@@ -288,3 +312,23 @@ impl RenderPipeline {
         }
     }
 }
+
+fn test_load_texture(queue: Arc<Queue>) -> (Arc<ImmutableImage<R8G8B8A8Srgb>>, CommandBufferExecFuture<NowFuture, AutoCommandBuffer>) {
+    use std::io::Cursor;
+    let png_bytes = include_bytes!("../../../assets/5efc8dc207bf72737494708e6a969d68.png").to_vec();
+    let cursor = Cursor::new(png_bytes);
+    let decoder = png::Decoder::new(cursor);
+    let (info, mut reader) = decoder.read_info().unwrap();
+    let dimensions = Dimensions::Dim2d { width: info.width, height: info.height };
+    let mut image_data = Vec::new();
+    image_data.resize((info.width * info.height * 4) as usize, 0);
+    reader.next_frame(&mut image_data).unwrap();
+
+    ImmutableImage::from_iter(
+	image_data.iter().cloned(),
+	dimensions,
+	R8G8B8A8Srgb,
+	queue
+    ).unwrap()
+}
+
