@@ -1,4 +1,4 @@
-use crate::render::{Model, ModelData, ModelHandle, ModelHandleMessage};
+use crate::render::{LightState, Model, ModelData, ModelHandle, ModelHandleMessage};
 use cgmath::{Matrix4, SquareMatrix};
 use parking_lot::RwLock;
 use std::{
@@ -21,6 +21,8 @@ pub struct GameState {
     pub camera: Matrix4<f32>,
     /// Get the current keyboard state.
     pub keyboard: KeyboardState,
+    /// The state of the lights currently in the world.
+    pub light: LightState,
 }
 
 impl GameState {
@@ -35,6 +37,7 @@ impl GameState {
             keyboard: KeyboardState {
                 pressed: HashSet::default(),
             },
+            light: LightState::new(),
         }
     }
 

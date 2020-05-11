@@ -67,12 +67,15 @@ mod render;
 
 pub use self::{
     game_state::GameState,
-    render::{ModelData, ModelHandle, Window},
+    render::{DirectionalLight, ModelData, ModelHandle, PointLight, PointLightAttenuation, Window},
 };
 
 /// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.
 pub mod state {
-    pub use crate::game_state::KeyboardState;
+    pub use crate::{
+        game_state::KeyboardState,
+        render::{FixedVec, LightState},
+    };
 }
 
 pub use winit::event::{VirtualKeyCode, WindowEvent};

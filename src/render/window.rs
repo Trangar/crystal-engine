@@ -123,6 +123,7 @@ impl<GAME: Game + 'static> Window<GAME> {
             self.game_state.camera,
             dimensions,
             handles.into_iter(),
+            self.game_state.light.directional.to_shader_value(),
             || {
                 self.update();
             },
