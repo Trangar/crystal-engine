@@ -123,10 +123,17 @@ layout(location = 2) in vec2 tex_coord_in;
 layout(location = 0) out vec2 fragment_tex_coord;
 layout(location = 1) out vec3 fragment_normal;
 
+struct DirectionalLight {
+    vec3 direction;
+    vec4 color;
+};
+
 layout(set = 0, binding = 0) uniform Data {
     mat4 world;
     mat4 view;
     mat4 proj;
+    DirectionalLight[100] lights;
+    int lightCount;
 } uniforms;
 
 void main() {
@@ -150,26 +157,40 @@ layout(location = 1) in vec3 fragment_normal;
 
 layout(location = 0) out vec4 f_color;
 
-layout(set = 0, binding = 1) uniform sampler2D tex;
+struct DirectionalLight {
+    vec3 direction;
+    vec4 color;
+};
 
-const vec3 LIGHT = vec3(0.0, 10.0, 0.0);
-const float MIN_BRIGHTNESS = 0.7;
+layout(set = 0, binding = 1) uniform sampler2D tex;
+layout(set = 0, binding = 0) uniform Data {
+    mat4 world;
+    mat4 view;
+    mat4 proj;
+    DirectionalLight[100] lights;
+    int lightCount;
+} uniforms;
 
 void main() {
     if(fragment_tex_coord.x < 0.0 && fragment_tex_coord.y < 0.0) {
-        f_color = vec4(0.7, 0.7, 0.7, 1.0);
+        f_color = vec4(1.0, 1.0, 1.0, 1.0);
     } else {
         f_color = texture(tex, fragment_tex_coord);
     }
-    float darkness = dot(normalize(fragment_normal), normalize(LIGHT));
-    float brightness = 1.0 - (darkness * (1.0 - MIN_BRIGHTNESS));
-
-    f_color = vec4(
-        f_color.x * brightness,
-        f_color.y * brightness,
-        f_color.z * brightness,
-        f_color.w
-    );
+    
+    vec4 light_color = vec4(0.0, 0.0, 0.0, 1.0); 
+    for(int i = 0; i < uniforms.lightCount; i++) {
+        DirectionalLight light = uniforms.lights[i];
+        float brightness = dot(normalize(fragment_normal), normalize(light.direction));
+        vec4 color = light.color * brightness;
+        light_color = vec4(
+            max(light_color.x, color.x),
+            max(light_color.y, color.y),
+            max(light_color.z, color.z),
+            1.0
+        );
+    }
+    f_color *= light_color;
 }
 "
     }

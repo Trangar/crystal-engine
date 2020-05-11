@@ -1,5 +1,5 @@
 use super::model::{fs as model_fs, vs as model_vs, Model};
-use cgmath::{Matrix4, Rad};
+use cgmath::{Matrix4, Rad, Zero};
 use std::sync::Arc;
 use sync::FlushError;
 use vulkano::{
@@ -259,7 +259,7 @@ impl RenderPipeline {
         .begin_render_pass(
             self.framebuffers[image_num].clone(),
             false,
-            vec![[0.0, 0.0, 1.0, 1.0].into(), 1f32.into()],
+            vec![[0.5, 0.5, 0.5, 1.0].into(), 1f32.into()],
         )
         .unwrap();
 
@@ -267,13 +267,28 @@ impl RenderPipeline {
 
         let aspect_ratio = dimensions[0] / dimensions[1];
         let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2), aspect_ratio, 0.01, 100.0);
+        let mut lights = [model_vs::ty::DirectionalLight {
+            direction: [0.0, -1.0, 0.0],
+            color: [1.0, 1.0, 1.0, 1.0],
+            _dummy0: [0, 0, 0, 0],
+        }; 100];
 
+        lights[1].direction = [1.0, 0.0, 0.0];
+        lights[1].color = [1.0, 0.0, 0.0, 0.2];
+        lights[2].direction = [0.0, 1.0, 0.0];
+        lights[2].color = [0.0, 1.0, 0.0, 0.2];
+        lights[3].direction = [0.0, 0.0, 1.0];
+        lights[3].color = [0.0, 0.0, 1.0, 0.2];
+
+        let mut data = model_vs::ty::Data {
+            world: Matrix4::zero().into(),
+            view: camera.into(),
+            proj: proj.into(),
+            lights,
+            lightCount: 4,
+        };
         for (model, matrix) in models {
-            let data = model_vs::ty::Data {
-                world: matrix.into(),
-                view: camera.into(),
-                proj: proj.into(),
-            };
+            data.world = matrix.into();
             let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
 
             // TODO: We should probably cache the set in a pool
