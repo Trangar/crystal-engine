@@ -22,7 +22,7 @@ impl Model {
         for (index, position) in obj.position.into_iter().enumerate() {
             vertices.push(Vertex {
                 position_in: position,
-                tex_coord_in: obj.texture.get(index).cloned().unwrap_or([0.0, 0.0]),
+                tex_coord_in: obj.texture.get(index).cloned().unwrap_or([-1.0, -1.0]),
                 normal_in: obj.normal.get(index).cloned().unwrap_or([0.0, 0.0, 0.0]),
             });
         }
@@ -41,7 +41,7 @@ impl Model {
     }
     pub fn new_triangle(device: Arc<Device>) -> Arc<Self> {
         let vertex1 = Vertex {
-            position_in: [-0.5, -0.5, 0.0],
+            position_in: [-0.5, -0.25, 0.0],
             normal_in: [0.0, 0.0, 0.0],
             tex_coord_in: [0.0, 0.0],
         };
@@ -51,7 +51,7 @@ impl Model {
             tex_coord_in: [1.0, 0.0],
         };
         let vertex3 = Vertex {
-            position_in: [0.5, -0.25, 0.0],
+            position_in: [0.25, -0.1, 0.0],
             normal_in: [0.0, 0.0, 0.0],
             tex_coord_in: [1.0, 1.0],
         };
@@ -59,6 +59,36 @@ impl Model {
             device,
             vec![vertex1, vertex2, vertex3].into_iter(),
             vec![].into_iter(),
+        )
+    }
+     pub fn new_square(device: Arc<Device>) -> Arc<Self> {
+         let mut vertices = Vec::new();
+         vertices.push(Vertex {
+             position_in: [-0.5, -0.5, 0.0],
+             normal_in: [0.0, 0.0, 1.0],
+             tex_coord_in: [1.0, 1.0],
+         });
+         vertices.push(Vertex {
+             position_in: [0.5, -0.5, 0.0],
+             normal_in: [0.0, 0.0, 1.0],
+             tex_coord_in: [0.0, 1.0],
+         });
+         vertices.push(Vertex {
+             position_in: [0.5, 0.5, 0.0],
+             normal_in: [0.0, 0.0, 1.0],
+             tex_coord_in: [0.0, 0.0],
+         });
+         vertices.push(Vertex {
+             position_in: [-0.5, 0.5, 0.0],
+             normal_in: [0.0, 0.0, 1.0],
+             tex_coord_in: [1.0, 0.0],
+         });
+         let indices = &[0, 1, 2, 0, 2, 3];
+        
+        Self::from_vertices(
+            device,
+            vertices.into_iter(),
+            indices.into_iter().map(|i| *i),
         )
     }
     fn from_vertices(
@@ -93,16 +123,18 @@ pub mod vs {
 layout(location = 0) in vec3 position_in;
 layout(location = 1) in vec2 tex_coord_in;
 
+layout(location = 0) out vec2 tex_coord;
+
 layout(set = 0, binding = 0) uniform Data {
     mat4 world;
     mat4 view;
     mat4 proj;
 } uniforms;
-layout(set = 0, binding = 1) uniform sampler2D tex;
 
 void main() {
     mat4 worldview = uniforms.view * uniforms.world;
     gl_Position = uniforms.proj * worldview * vec4(position_in, 1.0);
+    tex_coord = tex_coord_in;
 }
 "
     }
@@ -113,12 +145,18 @@ pub mod fs {
         ty: "fragment",
         src: "#version 450
 
+layout(location = 0) in vec2 tex_coord;
+
 layout(location = 0) out vec4 f_color;
 
 layout(set = 0, binding = 1) uniform sampler2D tex;
 
 void main() {
-    f_color = vec4(1.0, 0.0, 0.0, 1.0);
+    if(tex_coord.x < 0.0 && tex_coord.y < 0.0) {
+        f_color = vec4(1.0, 0.0, 0.0, 1.0);
+    } else {
+        f_color = texture(tex, tex_coord);
+    }
 }
 "
     }

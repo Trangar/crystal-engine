@@ -55,8 +55,19 @@ impl GameState {
     /// See [ModelHandle] for information on how to move and rotate the triangle.
     ///
     /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
-    pub fn create_triangle_model(&mut self) -> ModelHandle {
+    pub fn create_triangle(&mut self) -> ModelHandle {
         let model = Model::new_triangle(self.device.clone());
+        self.add_model(model)
+    }
+
+    /// Create a new square at the origin of the world. This can be useful to render simple
+    /// textures in the world.
+    ///
+    /// See [ModelHandle] for information on how to move and rotate the triangle.
+    ///
+    /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
+    pub fn create_square(&mut self) -> ModelHandle {
+        let model = Model::new_square(self.device.clone());
         self.add_model(model)
     }
 

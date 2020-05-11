@@ -315,7 +315,7 @@ impl RenderPipeline {
 
 fn test_load_texture(queue: Arc<Queue>) -> (Arc<ImmutableImage<R8G8B8A8Srgb>>, CommandBufferExecFuture<NowFuture, AutoCommandBuffer>) {
     use std::io::Cursor;
-    let png_bytes = include_bytes!("../../../assets/5efc8dc207bf72737494708e6a969d68.png").to_vec();
+    let png_bytes = include_bytes!("../../../assets/rust_logo.png").to_vec();
     let cursor = Cursor::new(png_bytes);
     let decoder = png::Decoder::new(cursor);
     let (info, mut reader) = decoder.read_info().unwrap();
