@@ -2,7 +2,14 @@ use super::{Model, ModelHandle, Vertex};
 use crate::GameState;
 use cgmath::{Euler, Rad, Vector3, Zero};
 use std::sync::Arc;
-use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::{
+    buffer::{BufferUsage, CpuAccessibleBuffer},
+    command_buffer::{AutoCommandBuffer, CommandBufferExecFuture},
+    device::Queue,
+    format::R8G8B8A8Srgb,
+    image::{Dimensions, ImmutableImage},
+    sync::{GpuFuture, NowFuture},
+};
 
 pub struct ModelBuilder<'a> {
     game_state: &'a mut GameState,
@@ -72,15 +79,31 @@ impl<'a> ModelBuilder<'a> {
             CpuAccessibleBuffer::from_iter(device, BufferUsage::all(), false, vertices.into_iter())
                 .unwrap();
 
-        let model = Arc::new(Model {
+        let mut model = Model {
             indices,
             vertex_buffer,
             texture: None,
-        });
+            texture_future: None,
+        };
+
+        if let Some(texture) = self.texture {
+            let (tex, tex_future) = load_texture(self.game_state.queue.clone(), texture);
+            model.texture = Some(tex);
+            // TODO: This is a hack
+            // Properly make the pipeline checks all texture futures before rendering
+            // Then wait until all buffers are completed, then start the actual render
+            //
+            // model.texture_future = Some(Box::new(tex_future) as _);
+            tex_future
+                .then_signal_fence_and_flush()
+                .unwrap()
+                .wait(None)
+                .unwrap();
+        }
 
         // TODO: Immediately set this on the handle
         // TODO: Move this logic away from game_state
-        let handle = self.game_state.add_model(model);
+        let handle = self.game_state.add_model(Arc::new(model));
 
         handle.modify(|data| {
             data.position = position;
@@ -181,4 +204,26 @@ impl SourceOrShape<'_> {
             }
         }
     }
+}
+
+fn load_texture(
+    queue: Arc<Queue>,
+    path: &str,
+) -> (
+    Arc<ImmutableImage<R8G8B8A8Srgb>>,
+    CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
+) {
+    use std::fs::File;
+    let file = File::open(path).unwrap();
+    let decoder = png::Decoder::new(file);
+    let (info, mut reader) = decoder.read_info().unwrap();
+    let dimensions = Dimensions::Dim2d {
+        width: info.width,
+        height: info.height,
+    };
+    let mut image_data = Vec::new();
+    image_data.resize((info.width * info.height * 4) as usize, 0);
+    reader.next_frame(&mut image_data).unwrap();
+
+    ImmutableImage::from_iter(image_data.iter().cloned(), dimensions, R8G8B8A8Srgb, queue).unwrap()
 }

@@ -71,7 +71,7 @@ impl<GAME: Game + 'static> Window<GAME> {
 
         let pipeline = RenderPipeline::create(
             device.clone(),
-            queue,
+            queue.clone(),
             surface.clone(),
             physical,
             [width, height],
@@ -79,7 +79,7 @@ impl<GAME: Game + 'static> Window<GAME> {
 
         let (sender, receiver) = channel();
 
-        let mut game_state = GameState::new(device, sender, surface);
+        let mut game_state = GameState::new(device, queue, sender, surface);
 
         let game = GAME::init(&mut game_state);
 

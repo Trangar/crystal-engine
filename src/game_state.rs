@@ -7,12 +7,16 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{mpsc::Sender, Arc},
 };
-use vulkano::{device::Device, swapchain::Surface};
+use vulkano::{
+    device::{Device, Queue},
+    swapchain::Surface,
+};
 use winit::event::VirtualKeyCode;
 
 /// Contains the game state. This struct is passed to [Game::init](trait.Game.html#tymethod.init) and [Game::update](trait.Game.html#tymethod.update).
 pub struct GameState {
     pub(crate) device: Arc<Device>,
+    pub(crate) queue: Arc<Queue>,
     // models: Vec<Arc<Model>>,
     pub(crate) model_handles: HashMap<u64, Arc<RwLock<ModelData>>>,
     model_handle_sender: Sender<ModelHandleMessage>,
@@ -31,11 +35,13 @@ pub struct GameState {
 impl GameState {
     pub(crate) fn new(
         device: Arc<Device>,
+        queue: Arc<Queue>,
         sender: Sender<ModelHandleMessage>,
         surface: Arc<Surface<winit::window::Window>>,
     ) -> Self {
         Self {
             device,
+            queue,
             model_handles: HashMap::new(),
             model_handle_sender: sender,
             is_running: true,

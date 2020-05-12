@@ -29,7 +29,7 @@ pub struct RenderPipeline {
     pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
     dynamic_state: DynamicState,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
-    test_image: Arc<ImmutableImage<R8G8B8A8Srgb>>,
+    empty_texture: Arc<ImmutableImage<R8G8B8A8Srgb>>,
     render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     uniform_buffer: CpuBufferPool<model_vs::ty::Data>,
     swapchain: Arc<Swapchain<winit::window::Window>>,
@@ -138,7 +138,11 @@ impl RenderPipeline {
         )
         .unwrap();
 
-        let (test_image, fut) = test_load_texture(queue.clone());
+        let (empty_texture, fut) = generate_empty_texture(queue.clone(), (255, 0, 0, 255));
+        // TODO: This is a hack
+        // Properly make the pipeline checks all texture futures before rendering
+        // Then wait until all buffers are completed, then start the actual render
+        //
         fut.then_signal_fence_and_flush()
             .unwrap()
             .wait(None)
@@ -156,7 +160,7 @@ impl RenderPipeline {
             swapchain_images,
             swapchain_needs_refresh: false,
             dimensions,
-            test_image,
+            empty_texture,
             sampler,
         }
     }
@@ -281,6 +285,11 @@ impl RenderPipeline {
         };
 
         for (model, matrix, group_matrices) in models {
+            let texture = model
+                .texture
+                .as_ref()
+                .unwrap_or(&self.empty_texture)
+                .clone();
             if model.indices.is_empty() {
                 data.world = matrix.into();
                 let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
@@ -298,7 +307,7 @@ impl RenderPipeline {
                     PersistentDescriptorSet::start(layout.clone())
                         .add_buffer(uniform_buffer_subbuffer)
                         .unwrap()
-                        .add_sampled_image(self.test_image.clone(), self.sampler.clone())
+                        .add_sampled_image(texture, self.sampler.clone())
                         .unwrap()
                         .build()
                         .unwrap(),
@@ -331,7 +340,7 @@ impl RenderPipeline {
                         PersistentDescriptorSet::start(layout.clone())
                             .add_buffer(uniform_buffer_subbuffer)
                             .unwrap()
-                            .add_sampled_image(self.test_image.clone(), self.sampler.clone())
+                            .add_sampled_image(texture.clone(), self.sampler.clone())
                             .unwrap()
                             .build()
                             .unwrap(),
@@ -381,6 +390,23 @@ impl RenderPipeline {
     }
 }
 
+fn generate_empty_texture(
+    queue: Arc<Queue>,
+    color: (u8, u8, u8, u8),
+) -> (
+    Arc<ImmutableImage<R8G8B8A8Srgb>>,
+    CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
+) {
+    let dimensions = Dimensions::Dim2d {
+        width: 1,
+        height: 1,
+    };
+    let image_data = vec![color.0, color.1, color.2, color.3];
+
+    ImmutableImage::from_iter(image_data.iter().cloned(), dimensions, R8G8B8A8Srgb, queue).unwrap()
+}
+
+/*
 // TODO: These should be loaded per-model based on the texture the model wants.
 fn test_load_texture(
     queue: Arc<Queue>,
@@ -403,3 +429,4 @@ fn test_load_texture(
 
     ImmutableImage::from_iter(image_data.iter().cloned(), dimensions, R8G8B8A8Srgb, queue).unwrap()
 }
+*/

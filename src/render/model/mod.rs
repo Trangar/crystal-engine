@@ -10,13 +10,16 @@ pub use self::{
 
 use super::Vertex;
 use std::sync::Arc;
-use vulkano::buffer::CpuAccessibleBuffer;
+use vulkano::{
+    buffer::CpuAccessibleBuffer, format::R8G8B8A8Srgb, image::ImmutableImage, sync::GpuFuture,
+};
 
 // TODO: Make it so that developers can create their own models/vertices?
 pub struct Model {
     pub vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     pub indices: Vec<Arc<CpuAccessibleBuffer<[u32]>>>,
-    pub texture: Option<Arc<()>>,
+    pub texture: Option<Arc<ImmutableImage<R8G8B8A8Srgb>>>,
+    pub texture_future: Option<Box<dyn GpuFuture>>,
 }
 
 pub mod vs {
