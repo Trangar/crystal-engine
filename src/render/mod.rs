@@ -1,10 +1,9 @@
 mod lights;
 mod model;
-mod model_handle;
 mod pipeline;
 mod window;
 
-pub use self::{lights::*, model::*, model_handle::*, pipeline::*, window::*};
+pub use self::{lights::*, model::*, pipeline::*, window::*};
 
 // TODO: Make it so that developers can create their own models/vertices?
 #[derive(Default)]

@@ -170,8 +170,8 @@ impl RenderPipeline {
         let dimensions = images[0].dimensions();
 
         let viewport = Viewport {
-            origin: [0.0, 0.0],
-            dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+            origin: [0.0, dimensions[1] as f32],
+            dimensions: [dimensions[0] as f32, -(dimensions[1] as f32)],
             depth_range: 0.0..1.0,
         };
         dynamic_state.viewports = Some(vec![viewport]);
@@ -260,14 +260,18 @@ impl RenderPipeline {
         .begin_render_pass(
             self.framebuffers[image_num].clone(),
             false,
-            vec![[0.5, 0.5, 0.5, 1.0].into(), 1f32.into()],
+            vec![[0.5, 0.5, 1.0, 1.0].into(), 1f32.into()],
         )
         .unwrap();
 
         let layout = self.pipeline.descriptor_set_layout(0).unwrap();
 
-        let aspect_ratio = dimensions[0] / dimensions[1];
-        let proj = cgmath::perspective(Rad(std::f32::consts::FRAC_PI_2), aspect_ratio, 0.01, 100.0);
+        let proj = cgmath::perspective(
+            Rad(std::f32::consts::FRAC_PI_2),
+            dimensions[0] / dimensions[1],
+            0.01,
+            100.0,
+        );
         let mut data = model_vs::ty::Data {
             world: Matrix4::zero().into(),
             view: camera.into(),
@@ -377,6 +381,7 @@ impl RenderPipeline {
     }
 }
 
+// TODO: These should be loaded per-model based on the texture the model wants.
 fn test_load_texture(
     queue: Arc<Queue>,
 ) -> (

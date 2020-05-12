@@ -78,7 +78,10 @@ pub mod state {
     };
 }
 
-pub use winit::event::{VirtualKeyCode, WindowEvent};
+/// Re-exported module of `winit`, with some additional structs that are useful
+pub mod event {
+    pub use winit::{dpi::PhysicalPosition, event::*};
+}
 
 /// The entry point of the game implementation.
 ///
@@ -93,15 +96,15 @@ pub trait Game {
         true
     }
     /// Triggered when a winit event is received.
-    fn event(&mut self, _state: &mut GameState, _event: &WindowEvent) {}
+    fn event(&mut self, _state: &mut GameState, _event: &event::WindowEvent) {}
     /// Triggered when a key is pressed.
     ///
     /// Note that the [GameState.keyboard](struct.GameState.html#structfield.keyboard) is updated *before* this method is called.
     /// This means that `state.keyboard.is_pressed(key)` will always return `true`.
-    fn keydown(&mut self, _state: &mut GameState, _key: VirtualKeyCode) {}
+    fn keydown(&mut self, _state: &mut GameState, _key: event::VirtualKeyCode) {}
     /// Triggered when a key is released.
     ///
     /// Note that the [GameState.keyboard](struct.GameState.html#structfield.keyboard) is updated *before* this method is called.
     /// This means that `state.keyboard.is_pressed(key)` will always return `false`.
-    fn keyup(&mut self, _state: &mut GameState, _key: VirtualKeyCode) {}
+    fn keyup(&mut self, _state: &mut GameState, _key: event::VirtualKeyCode) {}
 }

@@ -1,16 +1,18 @@
-use crate::render::{LightState, Model, ModelData, ModelHandle, ModelHandleMessage};
+use crate::render::{
+    LightState, Model, ModelBuilder, ModelData, ModelHandle, ModelHandleMessage, SourceOrShape,
+};
 use cgmath::{Matrix4, SquareMatrix};
 use parking_lot::RwLock;
 use std::{
     collections::{HashMap, HashSet},
     sync::{mpsc::Sender, Arc},
 };
-use vulkano::device::Device;
+use vulkano::{device::Device, swapchain::Surface};
 use winit::event::VirtualKeyCode;
 
 /// Contains the game state. This struct is passed to [Game::init](trait.Game.html#tymethod.init) and [Game::update](trait.Game.html#tymethod.update).
 pub struct GameState {
-    device: Arc<Device>,
+    pub(crate) device: Arc<Device>,
     // models: Vec<Arc<Model>>,
     pub(crate) model_handles: HashMap<u64, Arc<RwLock<ModelData>>>,
     model_handle_sender: Sender<ModelHandleMessage>,
@@ -23,10 +25,15 @@ pub struct GameState {
     pub keyboard: KeyboardState,
     /// The state of the lights currently in the world.
     pub light: LightState,
+    surface: Arc<Surface<winit::window::Window>>,
 }
 
 impl GameState {
-    pub(crate) fn new(device: Arc<Device>, sender: Sender<ModelHandleMessage>) -> Self {
+    pub(crate) fn new(
+        device: Arc<Device>,
+        sender: Sender<ModelHandleMessage>,
+        surface: Arc<Surface<winit::window::Window>>,
+    ) -> Self {
         Self {
             device,
             model_handles: HashMap::new(),
@@ -38,6 +45,7 @@ impl GameState {
                 pressed: HashSet::default(),
             },
             light: LightState::new(),
+            surface,
         }
     }
 
@@ -49,6 +57,43 @@ impl GameState {
         self.model_handles.remove(&handle);
     }
 
+    /// Get a reference to the winit window. This can be used to set the title with `set_title`, grap the cursor with `set_cursor_grab` and `set_cursor_visible`, and more.
+    pub fn window(&self) -> &winit::window::Window {
+        self.surface.window()
+    }
+
+    /// Set the cursor position. This is short for:
+    ///
+    /// ```rust
+    /// state.window()
+    ///      .set_cursor_position(winit::dpi::PhysicalPosition::new(position.0, position.1))
+    ///      .unwrap();
+    /// ```
+    ///
+    /// # Platform-specific
+    ///
+    /// On iOS this always returns an error, so this function is empty
+    #[cfg(target = "ios")]
+    pub fn set_cursor_position<P: winit::dpi::Pixel>(&self, _position: (P, P)) {}
+
+    /// Set the cursor position. This is short for:
+    ///
+    /// ```rust
+    /// state.window()
+    ///      .set_cursor_position(winit::dpi::PhysicalPosition::new(position.0, position.1))
+    ///      .unwrap();
+    /// ```
+    ///
+    /// # Platform-specific
+    ///
+    /// On iOS this always returns an error, so this function is empty
+    #[cfg(not(target = "ios"))]
+    pub fn set_cursor_position<P: winit::dpi::Pixel>(&self, position: (P, P)) {
+        self.window()
+            .set_cursor_position(winit::dpi::PhysicalPosition::new(position.0, position.1))
+            .unwrap();
+    }
+
     /// Exit the game. Once this function is called, it cannot be cancelled. This does not confirm with [Game::can_shutdown](trait.Game.html#method.can_shutdown).
     pub fn terminate_game(&mut self) {
         self.is_running = false;
@@ -58,32 +103,29 @@ impl GameState {
     /// See [ModelHandle] for information on how to move and rotate the triangle.
     ///
     /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
-    pub fn create_triangle(&mut self) -> ModelHandle {
-        let model = Model::new_triangle(self.device.clone());
-        self.add_model(model)
+    pub fn new_triangle(&mut self) -> ModelBuilder {
+        ModelBuilder::new(self, SourceOrShape::Triangle)
     }
 
-    /// Create a new square at the origin of the world. This can be useful to render simple
+    /// Create a new rectangle at the origin of the world. This can be useful to render simple
     /// textures in the world.
     ///
     /// See [ModelHandle] for information on how to move and rotate the triangle.
     ///
     /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
-    pub fn create_square(&mut self) -> ModelHandle {
-        let model = Model::new_square(self.device.clone());
-        self.add_model(model)
+    pub fn new_rectangle(&mut self) -> ModelBuilder {
+        ModelBuilder::new(self, SourceOrShape::Rectangle)
     }
 
     /// Load a model from the given path and place it at the origin of the world.
     /// See [ModelHandle] for information on how to move and rotate the triangle.
     ///
     /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
-    pub fn create_model_from_obj(&mut self, path: impl AsRef<std::path::Path>) -> ModelHandle {
-        let model = Model::from_obj_file(self.device.clone(), path);
-        self.add_model(model)
+    pub fn new_model_from_obj<'a>(&'a mut self, path: &'a str) -> ModelBuilder<'a> {
+        ModelBuilder::new(self, SourceOrShape::Source(path))
     }
 
-    fn add_model(&mut self, model: Arc<Model>) -> ModelHandle {
+    pub(crate) fn add_model(&mut self, model: Arc<Model>) -> ModelHandle {
         let (handle, id, data) = ModelHandle::from_model(model, self.model_handle_sender.clone());
         // self.models.push(model);
         self.model_handles.insert(id, data);

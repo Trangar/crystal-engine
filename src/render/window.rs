@@ -1,4 +1,4 @@
-use super::{model_handle::ModelHandleMessage, RenderPipeline};
+use super::{model::ModelHandleMessage, RenderPipeline};
 use crate::{Game, GameState};
 use std::sync::mpsc::{channel, Receiver};
 use vulkano::{
@@ -69,12 +69,17 @@ impl<GAME: Game + 'static> Window<GAME> {
             .build_vk_surface(&events_loop, instance.clone())
             .unwrap();
 
-        let pipeline =
-            RenderPipeline::create(device.clone(), queue, surface, physical, [width, height]);
+        let pipeline = RenderPipeline::create(
+            device.clone(),
+            queue,
+            surface.clone(),
+            physical,
+            [width, height],
+        );
 
         let (sender, receiver) = channel();
 
-        let mut game_state = GameState::new(device, sender);
+        let mut game_state = GameState::new(device, sender, surface);
 
         let game = GAME::init(&mut game_state);
 
