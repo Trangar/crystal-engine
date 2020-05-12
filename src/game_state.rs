@@ -1,6 +1,4 @@
-use crate::render::{
-    LightState, Model, ModelBuilder, ModelData, ModelHandle, ModelHandleMessage, SourceOrShape,
-};
+use crate::render::{LightState, ModelBuilder, ModelData, ModelHandleMessage, SourceOrShape};
 use cgmath::{Matrix4, SquareMatrix};
 use parking_lot::RwLock;
 use std::{
@@ -19,7 +17,7 @@ pub struct GameState {
     pub(crate) queue: Arc<Queue>,
     // models: Vec<Arc<Model>>,
     pub(crate) model_handles: HashMap<u64, Arc<RwLock<ModelData>>>,
-    model_handle_sender: Sender<ModelHandleMessage>,
+    pub(crate) model_handle_sender: Sender<ModelHandleMessage>,
     pub(crate) is_running: bool,
     /// The matrix of the camera currently in use.
     ///
@@ -129,13 +127,6 @@ impl GameState {
     /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
     pub fn new_model_from_obj<'a>(&'a mut self, path: &'a str) -> ModelBuilder<'a> {
         ModelBuilder::new(self, SourceOrShape::Source(path))
-    }
-
-    pub(crate) fn add_model(&mut self, model: Arc<Model>) -> ModelHandle {
-        let (handle, id, data) = ModelHandle::from_model(model, self.model_handle_sender.clone());
-        // self.models.push(model);
-        self.model_handles.insert(id, data);
-        handle
     }
 }
 

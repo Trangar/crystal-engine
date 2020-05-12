@@ -36,6 +36,8 @@ pub struct RenderPipeline {
     swapchain_images: Vec<Arc<SwapchainImage<winit::window::Window>>>,
     swapchain_needs_refresh: bool,
     sampler: Arc<Sampler>,
+
+    next_frame_futures: Vec<Box<dyn GpuFuture>>,
 }
 
 impl RenderPipeline {
@@ -139,14 +141,6 @@ impl RenderPipeline {
         .unwrap();
 
         let (empty_texture, fut) = generate_empty_texture(queue.clone(), (255, 0, 0, 255));
-        // TODO: This is a hack
-        // Properly make the pipeline checks all texture futures before rendering
-        // Then wait until all buffers are completed, then start the actual render
-        //
-        fut.then_signal_fence_and_flush()
-            .unwrap()
-            .wait(None)
-            .unwrap();
 
         Self {
             device,
@@ -162,6 +156,7 @@ impl RenderPipeline {
             dimensions,
             empty_texture,
             sampler,
+            next_frame_futures: vec![Box::new(fut) as _],
         }
     }
 
@@ -284,7 +279,18 @@ impl RenderPipeline {
             lightCount: directional_lights.0,
         };
 
+        // Build a list of futures that need to be processed before this frame is drawn
+        let mut start_future = Box::new(acquire_future) as Box<dyn GpuFuture>;
+        // Drain the futures that were queued from last frame
+        for fut in self.next_frame_futures.drain(..) {
+            start_future = Box::new(start_future.join(fut)) as _;
+        }
+
         for (model, matrix, group_matrices) in models {
+            if model.texture_future.read().is_some() {
+                let texture_future = model.texture_future.write().take().unwrap();
+                start_future = Box::new(start_future.join(texture_future)) as _;
+            }
             let texture = model
                 .texture
                 .as_ref()
@@ -366,7 +372,7 @@ impl RenderPipeline {
             .build()
             .unwrap();
 
-        let future = acquire_future
+        let future = start_future
             .then_execute(self.queue.clone(), command_buffer)
             .unwrap()
             // The color output is now expected to contain our triangle. But in order to show it on

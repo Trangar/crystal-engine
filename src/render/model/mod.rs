@@ -9,6 +9,7 @@ pub use self::{
 };
 
 use super::Vertex;
+use parking_lot::RwLock;
 use std::sync::Arc;
 use vulkano::{
     buffer::CpuAccessibleBuffer, format::R8G8B8A8Srgb, image::ImmutableImage, sync::GpuFuture,
@@ -19,7 +20,7 @@ pub struct Model {
     pub vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
     pub indices: Vec<Arc<CpuAccessibleBuffer<[u32]>>>,
     pub texture: Option<Arc<ImmutableImage<R8G8B8A8Srgb>>>,
-    pub texture_future: Option<Box<dyn GpuFuture>>,
+    pub texture_future: RwLock<Option<Box<dyn GpuFuture>>>,
 }
 
 pub mod vs {

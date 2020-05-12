@@ -1,6 +1,7 @@
 use super::{Model, ModelHandle, Vertex};
 use crate::GameState;
 use cgmath::{Euler, Rad, Vector3, Zero};
+use parking_lot::RwLock;
 use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
@@ -8,7 +9,7 @@ use vulkano::{
     device::Queue,
     format::R8G8B8A8Srgb,
     image::{Dimensions, ImmutableImage},
-    sync::{GpuFuture, NowFuture},
+    sync::NowFuture,
 };
 
 pub struct ModelBuilder<'a> {
@@ -83,28 +84,20 @@ impl<'a> ModelBuilder<'a> {
             indices,
             vertex_buffer,
             texture: None,
-            texture_future: None,
+            texture_future: RwLock::new(None),
         };
 
         if let Some(texture) = self.texture {
             let (tex, tex_future) = load_texture(self.game_state.queue.clone(), texture);
             model.texture = Some(tex);
-            // TODO: This is a hack
-            // Properly make the pipeline checks all texture futures before rendering
-            // Then wait until all buffers are completed, then start the actual render
-            //
-            // model.texture_future = Some(Box::new(tex_future) as _);
-            tex_future
-                .then_signal_fence_and_flush()
-                .unwrap()
-                .wait(None)
-                .unwrap();
+            *model.texture_future.write() = Some(Box::new(tex_future) as _);
         }
 
-        // TODO: Immediately set this on the handle
-        // TODO: Move this logic away from game_state
-        let handle = self.game_state.add_model(Arc::new(model));
+        let (handle, id, data) =
+            ModelHandle::from_model(Arc::new(model), self.game_state.model_handle_sender.clone());
+        self.game_state.model_handles.insert(id, data);
 
+        // TODO: Immediately set this on the handle
         handle.modify(|data| {
             data.position = position;
             data.rotation = rotation;
