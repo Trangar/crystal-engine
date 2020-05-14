@@ -1,11 +1,13 @@
 mod builder;
 mod data;
 mod handle;
+mod loader;
 
 pub use self::{
-    builder::{ModelBuilder, SourceOrShape},
+    builder::ModelBuilder,
     data::ModelData,
     handle::{ModelHandle, ModelHandleMessage},
+    loader::SourceOrShape,
 };
 
 use super::Vertex;
