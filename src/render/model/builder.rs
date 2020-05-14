@@ -2,7 +2,7 @@ use super::{Model, ModelHandle, Vertex};
 use crate::GameState;
 use cgmath::{Euler, Rad, Vector3, Zero};
 use parking_lot::RwLock;
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBuffer, CommandBufferExecFuture},
@@ -70,15 +70,19 @@ impl<'a> ModelBuilder<'a> {
                     device.clone(),
                     BufferUsage::all(),
                     false,
-                    i.into_iter(),
+                    i.into_iter().map(|i| *i),
                 )
                 .unwrap()
             })
             .collect();
 
-        let vertex_buffer =
-            CpuAccessibleBuffer::from_iter(device, BufferUsage::all(), false, vertices.into_iter())
-                .unwrap();
+        let vertex_buffer = CpuAccessibleBuffer::from_iter(
+            device,
+            BufferUsage::all(),
+            false,
+            vertices.into_iter().map(|v| *v),
+        )
+        .unwrap();
 
         let mut model = Model {
             indices,
@@ -109,94 +113,142 @@ impl<'a> ModelBuilder<'a> {
 }
 
 pub enum SourceOrShape<'a> {
-    Source(&'a str),
+    #[cfg(feature = "format-obj")]
+    Obj(&'a str),
+    #[cfg(feature = "format-fbx")]
+    Fbx(&'a str),
     Triangle,
     Rectangle,
+
+    // This dummy is needed to prevent compile issues when no formats are enabled
+    // This should never be constructed
+    #[allow(unused)]
+    Dummy(std::marker::PhantomData<&'a ()>),
 }
 
+type CowVertex = Cow<'static, [Vertex]>;
+type CowIndex = Cow<'static, [Cow<'static, [u32]>]>;
+
 impl SourceOrShape<'_> {
-    pub fn into_vertices_and_indices(self) -> (Vec<Vertex>, Vec<Vec<u32>>) {
+    pub fn into_vertices_and_indices(self) -> (CowVertex, CowIndex) {
         match self {
-            SourceOrShape::Source(src) => {
-                use genmesh::EmitTriangles;
+            #[cfg(feature = "format-obj")]
+            SourceOrShape::Obj(src) => load_obj_file(src),
 
-                let mut obj =
-                    obj::Obj::<genmesh::Polygon<obj::IndexTuple>>::load(std::path::Path::new(src))
-                        .expect("Could not load obj");
-                obj.load_mtls().unwrap();
-
-                let mut vertices = Vec::with_capacity(obj.position.len());
-                for (index, position) in obj.position.into_iter().enumerate() {
-                    vertices.push(Vertex {
-                        position_in: position,
-                        tex_coord_in: obj.texture.get(index).cloned().unwrap_or([-1.0, -1.0]),
-                        normal_in: obj.normal.get(index).cloned().unwrap_or([0.0, 0.0, 0.0]),
-                    });
-                }
-
-                let mut indices: Vec<Vec<u32>> =
-                    Vec::with_capacity(obj.objects.iter().map(|o| o.groups.len()).sum());
-                for object in obj.objects {
-                    for group in object.groups {
-                        let mut index_group = Vec::new();
-                        for poly in group.polys {
-                            poly.emit_triangles(|triangle| {
-                                index_group.push(triangle.x.0 as u32);
-                                index_group.push(triangle.y.0 as u32);
-                                index_group.push(triangle.z.0 as u32);
-                            });
-                        }
-                        indices.push(index_group);
-                    }
-                }
-
-                (vertices, indices)
-            }
-            SourceOrShape::Rectangle => {
-                let mut vertices = Vec::new();
-                vertices.push(Vertex {
-                    position_in: [-0.5, -0.5, 0.0],
-                    normal_in: [0.0, 0.0, 1.0],
-                    tex_coord_in: [1.0, 1.0],
-                });
-                vertices.push(Vertex {
-                    position_in: [0.5, -0.5, 0.0],
-                    normal_in: [0.0, 0.0, 1.0],
-                    tex_coord_in: [0.0, 1.0],
-                });
-                vertices.push(Vertex {
-                    position_in: [0.5, 0.5, 0.0],
-                    normal_in: [0.0, 0.0, 1.0],
-                    tex_coord_in: [0.0, 0.0],
-                });
-                vertices.push(Vertex {
-                    position_in: [-0.5, 0.5, 0.0],
-                    normal_in: [0.0, 0.0, 1.0],
-                    tex_coord_in: [1.0, 0.0],
-                });
-                let indices = vec![0, 1, 2, 0, 2, 3];
-                (vertices, vec![indices])
-            }
-            SourceOrShape::Triangle => {
-                let vertex1 = Vertex {
-                    position_in: [-0.5, -0.25, 0.0],
-                    normal_in: [0.0, 0.0, 0.0],
-                    tex_coord_in: [0.0, 0.0],
-                };
-                let vertex2 = Vertex {
-                    position_in: [0.0, 0.5, 0.0],
-                    normal_in: [0.0, 0.0, 0.0],
-                    tex_coord_in: [1.0, 0.0],
-                };
-                let vertex3 = Vertex {
-                    position_in: [0.25, -0.1, 0.0],
-                    normal_in: [0.0, 0.0, 0.0],
-                    tex_coord_in: [1.0, 1.0],
-                };
-                (vec![vertex1, vertex2, vertex3], vec![])
-            }
+            #[cfg(feature = "format-fbx")]
+            SourceOrShape::Fbx(src) => load_fbx_file(src),
+            SourceOrShape::Rectangle => load_rectangle_shape(),
+            SourceOrShape::Triangle => load_triangle_shape(),
+            SourceOrShape::Dummy(_) => unreachable!(),
         }
     }
+}
+
+#[cfg(feature = "format-obj")]
+fn load_obj_file(src: &str) -> (CowVertex, CowIndex) {
+    use genmesh::EmitTriangles;
+
+    let mut obj = obj::Obj::<genmesh::Polygon<obj::IndexTuple>>::load(std::path::Path::new(src))
+        .expect("Could not load obj");
+    obj.load_mtls().unwrap();
+
+    let mut vertices = Vec::with_capacity(obj.position.len());
+    for (index, position) in obj.position.into_iter().enumerate() {
+        vertices.push(Vertex {
+            position_in: position,
+            tex_coord_in: obj.texture.get(index).cloned().unwrap_or([-1.0, -1.0]),
+            normal_in: obj.normal.get(index).cloned().unwrap_or([0.0, 0.0, 0.0]),
+        });
+    }
+
+    let mut indices: Vec<_> = Vec::with_capacity(obj.objects.iter().map(|o| o.groups.len()).sum());
+    for object in obj.objects {
+        for group in object.groups {
+            let mut index_group = Vec::new();
+            for poly in group.polys {
+                poly.emit_triangles(|triangle| {
+                    index_group.push(triangle.x.0 as u32);
+                    index_group.push(triangle.y.0 as u32);
+                    index_group.push(triangle.z.0 as u32);
+                });
+            }
+            indices.push(index_group.into());
+        }
+    }
+
+    (vertices.into(), indices.into())
+}
+#[cfg(feature = "format-fbx")]
+fn load_fbx_file(src: &str) -> (CowVertex, CowIndex) {
+    use fbxcel_dom::any::AnyDocument;
+
+    let file = std::fs::File::open(src).expect("Failed to open file");
+    // You can also use raw `file`, but do buffering for better efficiency.
+    let reader = std::io::BufReader::new(file);
+
+    // Use `from_seekable_reader` for readers implementing `std::io::Seek`.
+    // To use readers without `std::io::Seek` implementation, use `from_reader`
+    // instead.
+    match AnyDocument::from_seekable_reader(reader).expect("Failed to load document") {
+        AnyDocument::V7400(_fbx_ver, doc) => {
+            for object in doc.objects().map(|o| o.get_typed()) {
+                println!("{:?}", object);
+            }
+            // You got a document. You can do what you want.
+            unimplemented!()
+        }
+        // `AnyDocument` is nonexhaustive.
+        // You should handle unknown document versions case.
+        _ => panic!("Got FBX document of unsupported version"),
+    }
+}
+
+fn load_rectangle_shape() -> (CowVertex, CowIndex) {
+    static VERTICES: CowVertex = Cow::Borrowed(&[
+        Vertex {
+            position_in: [-0.5, -0.5, 0.0],
+            normal_in: [0.0, 0.0, 1.0],
+            tex_coord_in: [1.0, 1.0],
+        },
+        Vertex {
+            position_in: [0.5, -0.5, 0.0],
+            normal_in: [0.0, 0.0, 1.0],
+            tex_coord_in: [0.0, 1.0],
+        },
+        Vertex {
+            position_in: [0.5, 0.5, 0.0],
+            normal_in: [0.0, 0.0, 1.0],
+            tex_coord_in: [0.0, 0.0],
+        },
+        Vertex {
+            position_in: [-0.5, 0.5, 0.0],
+            normal_in: [0.0, 0.0, 1.0],
+            tex_coord_in: [1.0, 0.0],
+        },
+    ]);
+    static INDICES: CowIndex = Cow::Borrowed(&[Cow::Borrowed(&[0, 1, 2, 0, 2, 3])]);
+    (VERTICES.clone(), INDICES.clone())
+}
+
+fn load_triangle_shape() -> (CowVertex, CowIndex) {
+    static VERTICES: CowVertex = Cow::Borrowed(&[
+        Vertex {
+            position_in: [-0.5, -0.25, 0.0],
+            normal_in: [0.0, 0.0, 0.0],
+            tex_coord_in: [0.0, 0.0],
+        },
+        Vertex {
+            position_in: [0.0, 0.5, 0.0],
+            normal_in: [0.0, 0.0, 0.0],
+            tex_coord_in: [1.0, 0.0],
+        },
+        Vertex {
+            position_in: [0.25, -0.1, 0.0],
+            normal_in: [0.0, 0.0, 0.0],
+            tex_coord_in: [1.0, 1.0],
+        },
+    ]);
+    (VERTICES.clone(), Cow::Borrowed(&[]))
 }
 
 fn load_texture(

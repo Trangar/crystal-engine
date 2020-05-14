@@ -107,7 +107,7 @@ impl GameState {
     /// See [ModelHandle] for information on how to move and rotate the triangle.
     ///
     /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
-    pub fn new_triangle(&mut self) -> ModelBuilder {
+    pub fn new_triangle_model(&mut self) -> ModelBuilder {
         ModelBuilder::new(self, SourceOrShape::Triangle)
     }
 
@@ -117,16 +117,30 @@ impl GameState {
     /// See [ModelHandle] for information on how to move and rotate the triangle.
     ///
     /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
-    pub fn new_rectangle(&mut self) -> ModelBuilder {
+    pub fn new_rectangle_model(&mut self) -> ModelBuilder {
         ModelBuilder::new(self, SourceOrShape::Rectangle)
     }
 
+    #[cfg(feature = "format-obj")]
     /// Load a model from the given path and place it at the origin of the world.
     /// See [ModelHandle] for information on how to move and rotate the triangle.
     ///
     /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
-    pub fn new_model_from_obj<'a>(&'a mut self, path: &'a str) -> ModelBuilder<'a> {
-        ModelBuilder::new(self, SourceOrShape::Source(path))
+    ///
+    /// This method is only available when the `format-obj` feature is enabled.
+    pub fn new_obj_model<'a>(&'a mut self, path: &'a str) -> ModelBuilder<'a> {
+        ModelBuilder::new(self, SourceOrShape::Obj(path))
+    }
+
+    #[cfg(feature = "format-fbx")]
+    /// Load a model from the given path and place it at the origin of the world.
+    /// See [ModelHandle] for information on how to move and rotate the triangle.
+    ///
+    /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
+    ///
+    /// This method is only available when the `format-fbx` feature is enabled.
+    pub fn new_fbx_model<'a>(&'a mut self, path: &'a str) -> ModelBuilder<'a> {
+        ModelBuilder::new(self, SourceOrShape::Fbx(path))
     }
 }
 

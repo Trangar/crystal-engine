@@ -60,5 +60,12 @@ impl crystal_engine::Game for Game {
 }
 ```
 
+# Features
+Currently the following features are available:
+
+- **format-obj**: Allows loading .obj files, enabled by default.
+- **format-fbx**: Allows loading .fbx binary files, enabled by default.
+
+
 # Feedback
 Feel free to approach me with any feedback you might have. You can open an issue on this repo, message me on twitter [@victorkoenders](https://twitter.com/victorkoenders) or on discord @Trangar#5901 

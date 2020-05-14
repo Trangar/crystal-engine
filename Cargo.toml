@@ -18,6 +18,14 @@ png = "0.16.3"
 winit = "0.22.1"
 cgmath = "0.17.0"
 rand = "0.7.3"
-obj = { version = "0.9.1", features = ["genmesh"] }
-genmesh = "0.6.2"
 parking_lot = "0.10.2"
+
+# Optional dependencies, these are only included when they are needed for features
+genmesh = { version = "0.6.2", optional = true }
+obj = { version = "0.9.1", features = ["genmesh"], optional = true }
+fbxcel-dom = { version = "0.0.5", optional = true }
+
+[features]
+default = ["format-obj", "format-fbx"]
+format-obj = ['obj', 'genmesh']
+format-fbx = ["fbxcel-dom"]
