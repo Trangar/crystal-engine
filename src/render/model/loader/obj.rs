@@ -1,12 +1,11 @@
 use super::{CowIndex, CowVertex};
 use crate::render::Vertex;
+use genmesh::EmitTriangles;
 
 pub fn load(src: &str) -> (CowVertex, CowIndex) {
-    use genmesh::EmitTriangles;
-
-    let mut obj = obj::Obj::<genmesh::Polygon<obj::IndexTuple>>::load(std::path::Path::new(src))
-        .expect("Could not load obj");
+    let mut obj = obj::Obj::load(std::path::Path::new(src)).expect("Could not load obj");
     obj.load_mtls().unwrap();
+    let obj = obj.data;
 
     let mut vertices = Vec::with_capacity(obj.position.len());
     for (index, position) in obj.position.into_iter().enumerate() {
@@ -22,7 +21,7 @@ pub fn load(src: &str) -> (CowVertex, CowIndex) {
         for group in object.groups {
             let mut index_group = Vec::new();
             for poly in group.polys {
-                poly.emit_triangles(|triangle| {
+                poly.into_genmesh().emit_triangles(|triangle| {
                     index_group.push(triangle.x.0 as u32);
                     index_group.push(triangle.y.0 as u32);
                     index_group.push(triangle.z.0 as u32);
