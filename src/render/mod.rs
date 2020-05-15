@@ -14,7 +14,7 @@ pub struct Vertex {
 }
 vulkano::impl_vertex!(Vertex, position_in, normal_in, tex_coord_in);
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct Material {
     pub ambient: [f32; 3],
     pub diffuse: [f32; 3],

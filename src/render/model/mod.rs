@@ -85,6 +85,10 @@ layout(set = 0, binding = 0) uniform Data {
     mat4 proj;
     DirectionalLight[100] lights;
     int lightCount;
+    vec3 material_ambient;
+    vec3 material_diffuse;
+    vec3 material_specular;
+    float material_shininess;
 } uniforms;
 
 void main() {
@@ -120,11 +124,15 @@ layout(set = 0, binding = 0) uniform Data {
     mat4 proj;
     DirectionalLight[100] lights;
     int lightCount;
+    vec3 material_ambient;
+    vec3 material_diffuse;
+    vec3 material_specular;
+    float material_shininess;
 } uniforms;
 
 void main() {
     if(fragment_tex_coord.x < 0.0 && fragment_tex_coord.y < 0.0) {
-        f_color = vec4(1.0, 1.0, 1.0, 1.0);
+        f_color = vec4(uniforms.material_ambient, 1);
     } else {
         f_color = texture(tex, fragment_tex_coord);
     }

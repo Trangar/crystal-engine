@@ -277,6 +277,13 @@ impl RenderPipeline {
             proj: proj.into(),
             lights: directional_lights.1,
             lightCount: directional_lights.0,
+            material_ambient: [0.0, 0.0, 0.0],
+            _dummy0: [0u8; 12],
+            material_diffuse: [0.0, 0.0, 0.0],
+            _dummy1: [0u8; 4],
+            material_specular: [0.0, 0.0, 0.0],
+            _dummy2: [0u8; 4],
+            material_shininess: 0.0,
         };
 
         // Build a list of futures that need to be processed before this frame is drawn
@@ -305,6 +312,17 @@ impl RenderPipeline {
                     .clone();
 
                 data.world = (base_matrix * group_data.matrix).into();
+                if let Some(material) = group.material.as_ref() {
+                    data.material_ambient = material.ambient;
+                    data.material_specular = material.specular;
+                    data.material_diffuse = material.diffuse;
+                    data.material_shininess = material.shininess;
+                } else {
+                    data.material_ambient = [1.0, 0.0, 0.0];
+                    data.material_specular = [1.0, 0.0, 0.0];
+                    data.material_diffuse = [1.0, 0.0, 0.0];
+                    data.material_shininess = 1.0;
+                }
                 let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
 
                 // TODO: We should probably cache the set in a pool

@@ -1,6 +1,8 @@
-use super::{CowIndex, CowVertex, ParsedModel};
-use crate::render::Vertex;
+use super::{CowVertex, ParsedModel, ParsedModelPart};
+use crate::render::{Material, Vertex};
 use genmesh::EmitTriangles;
+use obj::ObjMaterial;
+use std::sync::Arc;
 
 pub fn load(src: &str) -> ParsedModel {
     let mut obj = obj::Obj::load(std::path::Path::new(src)).expect("Could not load obj");
@@ -10,8 +12,7 @@ pub fn load(src: &str) -> ParsedModel {
         texture,
         normal,
         objects,
-        // material_libs,
-        ..
+        material_libs,
     } = obj.data;
 
     let vertices: Vec<_> = position
@@ -24,7 +25,11 @@ pub fn load(src: &str) -> ParsedModel {
         })
         .collect();
 
-    let mut indices: Vec<_> = Vec::with_capacity(objects.iter().map(|o| o.groups.len()).sum());
+    let mut result = ParsedModel::from(CowVertex::from(vertices));
+    result
+        .parts
+        .reserve(objects.iter().map(|o| o.groups.len()).sum());
+
     for object in objects {
         for group in object.groups {
             let mut index_group = Vec::new();
@@ -35,9 +40,30 @@ pub fn load(src: &str) -> ParsedModel {
                     index_group.push(triangle.z.0 as u32);
                 });
             }
-            indices.push(index_group.into());
+
+            let mut part = ParsedModelPart {
+                index: index_group.into(),
+                material: None,
+            };
+            let material = group.material.and_then(|m| match m {
+                ObjMaterial::Mtl(mtl) => Some(mtl),
+                ObjMaterial::Ref(name) => material_libs
+                    .iter()
+                    .flat_map(|m| &m.materials)
+                    .find(|m| m.name == name)
+                    .map(|m| Arc::clone(m)),
+            });
+            if let Some(material) = material {
+                part.material = Some(Material {
+                    ambient: material.ka.unwrap_or([1.0, 0.0, 0.0]),
+                    diffuse: material.kd.unwrap_or([1.0, 0.0, 0.0]),
+                    specular: material.ks.unwrap_or([1.0, 0.0, 0.0]),
+                    shininess: material.km.unwrap_or(0.0),
+                });
+            }
+            result.parts.push(part);
         }
     }
 
-    (CowVertex::from(vertices), CowIndex::from(indices)).into()
+    result
 }
