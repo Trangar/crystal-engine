@@ -1,4 +1,4 @@
-use super::{loader::SourceOrShape, Model, ModelHandle};
+use super::{loader::SourceOrShape, Model, ModelGroup, ModelHandle};
 use crate::GameState;
 use cgmath::{Euler, Rad, Vector3, Zero};
 use parking_lot::RwLock;
@@ -61,42 +61,50 @@ impl<'a> ModelBuilder<'a> {
         let rotation = self.rotation;
         let scale = self.scale;
 
-        let (vertices, indices) = self.source_or_shape.into_vertices_and_indices();
+        let source = self.source_or_shape.parse();
         let device = self.game_state.device.clone();
-        let indices = indices
-            .into_iter()
-            .map(|i| {
-                CpuAccessibleBuffer::from_iter(
-                    device.clone(),
-                    BufferUsage::all(),
-                    false,
-                    i.into_iter().map(|i| *i),
-                )
-                .unwrap()
-            })
-            .collect();
+
+        let (tex, mut futures) = if let Some(texture) = self.texture {
+            let (tex, tex_future) = load_texture(self.game_state.queue.clone(), texture);
+            (Some(tex), vec![Box::new(tex_future) as _])
+        } else {
+            (None, Vec::new())
+        };
 
         let vertex_buffer = CpuAccessibleBuffer::from_iter(
-            device,
+            device.clone(),
             BufferUsage::all(),
             false,
-            vertices.into_iter().map(|v| *v),
+            source.vertices.iter().copied(),
         )
         .unwrap();
 
-        let mut model = Model {
-            indices,
-            vertex_buffer,
-            texture: None,
-            texture_future: RwLock::new(None),
-        };
+        let mut groups: Vec<_> = source
+            .parts
+            .into_iter()
+            .map(|part| {
+                let (group, maybe_future) = ModelGroup::from_part(device.clone(), &tex, part);
+                if let Some(fut) = maybe_future {
+                    futures.push(fut);
+                }
+                group
+            })
+            .collect();
 
-        if let Some(texture) = self.texture {
-            let (tex, tex_future) = load_texture(self.game_state.queue.clone(), texture);
-            model.texture = Some(tex);
-            *model.texture_future.write() = Some(Box::new(tex_future) as _);
+        if groups.is_empty() {
+            // we always need a single group, so add a dummy group
+            groups.push(ModelGroup {
+                material: None,
+                texture: tex,
+                index: None,
+            });
         }
 
+        let model = Model {
+            vertex_buffer,
+            groups,
+            texture_future: RwLock::new(futures),
+        };
         let (handle, id, data) =
             ModelHandle::from_model(Arc::new(model), self.game_state.model_handle_sender.clone());
         self.game_state.model_handles.insert(id, data);

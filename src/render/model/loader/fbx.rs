@@ -1,4 +1,4 @@
-use super::{CowIndex, CowVertex};
+use super::{CowVertex, ParsedModel};
 use crate::render::Vertex;
 use cgmath::{InnerSpace, Vector2, Vector3};
 use fbxcel_dom::{
@@ -8,9 +8,8 @@ use fbxcel_dom::{
         object::{geometry::MeshHandle, model::TypedModelHandle, TypedObjectHandle},
     },
 };
-use std::borrow::Cow;
 
-pub fn load(src: &str) -> (CowVertex, CowIndex) {
+pub fn load(src: &str) -> ParsedModel {
     let file = std::fs::File::open(src).expect("Failed to open file");
     // You can also use raw `file`, but do buffering for better efficiency.
     let reader = std::io::BufReader::new(file);
@@ -18,6 +17,7 @@ pub fn load(src: &str) -> (CowVertex, CowIndex) {
     // Use `from_seekable_reader` for readers implementing `std::io::Seek`.
     // To use readers without `std::io::Seek` implementation, use `from_reader`
     // instead.
+    let mut vertices = Vec::new();
     match AnyDocument::from_seekable_reader(reader).expect("Failed to load document") {
         AnyDocument::V7400(_fbx_ver, doc) => {
             for object in doc.objects().filter_map(|o| {
@@ -94,25 +94,27 @@ pub fn load(src: &str) -> (CowVertex, CowIndex) {
                 assert_eq!(positions.len(), normals.len());
                 assert_eq!(positions.len(), uv.len());
 
-                let vertices: Vec<Vertex> = positions
+                vertices.reserve(positions.len());
+
+                for ((position_in, normal_in), tex_coord_in) in positions
                     .into_iter()
                     .zip(normals.into_iter())
                     .zip(uv.into_iter())
-                    .map(|((position_in, normal_in), tex_coord_in)| Vertex {
+                {
+                    vertices.push(Vertex {
                         position_in,
                         normal_in,
                         tex_coord_in,
-                    })
-                    .collect();
-
-                return (vertices.into(), Cow::Borrowed(&[]));
+                    });
+                }
             }
-            panic!("No valid object found")
         }
         // `AnyDocument` is nonexhaustive.
         // You should handle unknown document versions case.
         _ => panic!("Got FBX document of unsupported version"),
     }
+
+    CowVertex::Owned(vertices).into()
 }
 
 /// Triangulator.
@@ -236,7 +238,7 @@ pub fn triangulator(
                     results.push([convex_pvi, pvi1, pvi2]);
                 }
             } else {
-                panic!("Unsupported polygon: {}-gon with two or more concave angles");
+                panic!("Unsupported polygon with two or more concave angles");
             }
         }
     }

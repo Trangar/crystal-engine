@@ -1,4 +1,4 @@
-use crate::render::Vertex;
+use crate::render::{Material, Vertex};
 use std::borrow::Cow;
 
 #[cfg(feature = "format-fbx")]
@@ -24,18 +24,52 @@ pub type CowVertex = Cow<'static, [Vertex]>;
 pub type CowIndex = Cow<'static, [Cow<'static, [u32]>]>;
 
 impl SourceOrShape<'_> {
-    pub fn into_vertices_and_indices(self) -> (CowVertex, CowIndex) {
+    pub fn parse(self) -> ParsedModel {
         match self {
             #[cfg(feature = "format-obj")]
             SourceOrShape::Obj(src) => obj::load(src),
 
             #[cfg(feature = "format-fbx")]
             SourceOrShape::Fbx(src) => fbx::load(src),
-            SourceOrShape::Rectangle => RECTANGLE.clone(),
-            SourceOrShape::Triangle => TRIANGLE.clone(),
+            SourceOrShape::Rectangle => RECTANGLE.clone().into(),
+            SourceOrShape::Triangle => TRIANGLE.clone().into(),
             SourceOrShape::Dummy(_) => unreachable!(),
         }
     }
+}
+
+pub struct ParsedModel {
+    pub vertices: CowVertex,
+    pub parts: Vec<ParsedModelPart>,
+}
+
+impl From<CowVertex> for ParsedModel {
+    fn from(vertex: CowVertex) -> Self {
+        Self {
+            vertices: vertex,
+            parts: Vec::new(),
+        }
+    }
+}
+
+impl From<(CowVertex, CowIndex)> for ParsedModel {
+    fn from((vertex, indices): (CowVertex, CowIndex)) -> Self {
+        Self {
+            vertices: vertex,
+            parts: indices
+                .iter()
+                .map(|index| ParsedModelPart {
+                    index: index.clone(),
+                    material: None,
+                })
+                .collect(),
+        }
+    }
+}
+
+pub struct ParsedModelPart {
+    pub index: Cow<'static, [u32]>,
+    pub material: Option<Material>,
 }
 
 static RECTANGLE: (CowVertex, CowIndex) = (
@@ -64,23 +98,20 @@ static RECTANGLE: (CowVertex, CowIndex) = (
     Cow::Borrowed(&[Cow::Borrowed(&[0, 1, 2, 0, 2, 3])]),
 );
 
-static TRIANGLE: (CowVertex, CowIndex) = (
-    Cow::Borrowed(&[
-        Vertex {
-            position_in: [-0.5, -0.25, 0.0],
-            normal_in: [0.0, 0.0, 0.0],
-            tex_coord_in: [0.0, 0.0],
-        },
-        Vertex {
-            position_in: [0.0, 0.5, 0.0],
-            normal_in: [0.0, 0.0, 0.0],
-            tex_coord_in: [1.0, 0.0],
-        },
-        Vertex {
-            position_in: [0.25, -0.1, 0.0],
-            normal_in: [0.0, 0.0, 0.0],
-            tex_coord_in: [1.0, 1.0],
-        },
-    ]),
-    Cow::Borrowed(&[]),
-);
+static TRIANGLE: CowVertex = Cow::Borrowed(&[
+    Vertex {
+        position_in: [-0.5, -0.25, 0.0],
+        normal_in: [0.0, 0.0, 0.0],
+        tex_coord_in: [0.0, 0.0],
+    },
+    Vertex {
+        position_in: [0.0, 0.5, 0.0],
+        normal_in: [0.0, 0.0, 0.0],
+        tex_coord_in: [1.0, 0.0],
+    },
+    Vertex {
+        position_in: [0.25, -0.1, 0.0],
+        normal_in: [0.0, 0.0, 0.0],
+        tex_coord_in: [1.0, 1.0],
+    },
+]);

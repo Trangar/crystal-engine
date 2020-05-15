@@ -13,3 +13,11 @@ pub struct Vertex {
     tex_coord_in: [f32; 2],
 }
 vulkano::impl_vertex!(Vertex, position_in, normal_in, tex_coord_in);
+
+#[derive(Default, Copy, Clone)]
+pub struct Material {
+    pub ambient: [f32; 3],
+    pub diffuse: [f32; 3],
+    pub specular: [f32; 3],
+    pub shininess: f32,
+}

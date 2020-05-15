@@ -22,9 +22,9 @@ pub struct ModelData {
     /// The scale of this model.
     pub scale: f32,
 
-    /// Contains the matrices of the groups in the model.
+    /// Contains the data of the groups in the model.
     /// If your 3d model has multiple parts, you can move them individually with this property.
-    pub group_matrices: Vec<Matrix4<f32>>,
+    pub groups: Vec<ModelDataGroup>,
 }
 
 impl std::fmt::Debug for ModelData {
@@ -41,7 +41,10 @@ impl ModelData {
     pub(crate) fn new(model: Arc<Model>) -> (u64, Arc<RwLock<Self>>) {
         static ID: AtomicU64 = AtomicU64::new(0);
         let id = ID.fetch_add(1, Ordering::Relaxed);
-        let index_group_count = model.indices.len();
+        let groups = (0..model.groups.len())
+            .map(|_| ModelDataGroup::default())
+            .collect();
+
         (
             id,
             Arc::new(RwLock::new(Self {
@@ -50,9 +53,7 @@ impl ModelData {
                 position: Vector3::zero(),
                 rotation: Euler::new(Rad(0.0), Rad(0.0), Rad(0.0)),
                 scale: 1.0,
-                group_matrices: (0..index_group_count)
-                    .map(|_| Matrix4::identity())
-                    .collect(),
+                groups,
             })),
         )
     }
@@ -60,5 +61,17 @@ impl ModelData {
         Matrix4::from_translation(self.position)
             * Matrix4::from(self.rotation)
             * Matrix4::from_scale(self.scale)
+    }
+}
+
+pub struct ModelDataGroup {
+    pub matrix: Matrix4<f32>,
+}
+
+impl Default for ModelDataGroup {
+    fn default() -> Self {
+        Self {
+            matrix: Matrix4::identity(),
+        }
     }
 }

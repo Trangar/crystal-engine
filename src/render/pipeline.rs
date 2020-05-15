@@ -1,7 +1,8 @@
-use super::model::{fs as model_fs, vs as model_vs, Model};
+use super::model::{fs as model_fs, vs as model_vs};
+use crate::ModelData;
 use cgmath::{Matrix4, Rad, Zero};
-use std::sync::Arc;
-use sync::FlushError;
+use parking_lot::RwLock;
+use std::{mem, sync::Arc};
 use vulkano::{
     buffer::CpuBufferPool,
     command_buffer::{
@@ -19,7 +20,7 @@ use vulkano::{
         AcquireError, ColorSpace, FullscreenExclusive, PresentMode, Surface, SurfaceTransform,
         Swapchain, SwapchainAcquireFuture, SwapchainCreationError,
     },
-    sync::{self, GpuFuture, NowFuture},
+    sync::{FenceSignalFuture, FlushError, GpuFuture, NowFuture},
 };
 
 pub struct RenderPipeline {
@@ -239,17 +240,16 @@ impl RenderPipeline {
         }
     }
 
-    pub fn render(
+    pub fn render<'a>(
         &mut self,
         camera: Matrix4<f32>,
         dimensions: [f32; 2],
-        models: impl Iterator<Item = (Arc<Model>, Matrix4<f32>, Vec<Matrix4<f32>>)>,
+        models: impl Iterator<Item = &'a Arc<RwLock<ModelData>>>,
         directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
-        callback: impl FnOnce(),
-    ) {
+    ) -> Option<FenceSignalFuture<Box<dyn GpuFuture>>> {
         let (image_num, acquire_future) = match self.get_swapchain_num() {
             Some(r) => r,
-            None => return,
+            None => return None,
         };
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary_one_time_submit(
             self.device.clone(),
@@ -282,22 +282,29 @@ impl RenderPipeline {
         // Build a list of futures that need to be processed before this frame is drawn
         let mut start_future = Box::new(acquire_future) as Box<dyn GpuFuture>;
         // Drain the futures that were queued from last frame
-        for fut in self.next_frame_futures.drain(..) {
+        for fut in mem::replace(&mut self.next_frame_futures, Vec::new()) {
             start_future = Box::new(start_future.join(fut)) as _;
         }
 
-        for (model, matrix, group_matrices) in models {
-            if model.texture_future.read().is_some() {
-                let texture_future = model.texture_future.write().take().unwrap();
-                start_future = Box::new(start_future.join(texture_future)) as _;
+        for handle in models {
+            let handle = handle.read();
+            let model = &handle.model;
+            if !model.texture_future.read().is_empty() {
+                let texture_futures = mem::replace(&mut *model.texture_future.write(), Vec::new());
+                for fut in texture_futures {
+                    start_future = Box::new(start_future.join(fut)) as _;
+                }
             }
-            let texture = model
-                .texture
-                .as_ref()
-                .unwrap_or(&self.empty_texture)
-                .clone();
-            if model.indices.is_empty() {
-                data.world = matrix.into();
+            let base_matrix = handle.matrix();
+
+            for (group, group_data) in model.groups.iter().zip(handle.groups.iter()) {
+                let texture = group
+                    .texture
+                    .as_ref()
+                    .unwrap_or(&self.empty_texture)
+                    .clone();
+
+                data.world = (base_matrix * group_data.matrix).into();
                 let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
 
                 // TODO: We should probably cache the set in a pool
@@ -318,41 +325,8 @@ impl RenderPipeline {
                         .build()
                         .unwrap(),
                 );
-
-                command_buffer_builder = command_buffer_builder
-                    .draw(
-                        self.pipeline.clone(),
-                        &self.dynamic_state,
-                        vec![model.vertex_buffer.clone()],
-                        set,
-                        (),
-                    )
-                    .unwrap();
-            } else {
-                for (i, index) in model.indices.iter().enumerate() {
-                    data.world = (matrix * group_matrices[i]).into();
-                    let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
-
-                    // TODO: We should probably cache the set in a pool
-                    // From the documentation: "Creating a persistent descriptor set allocates from a pool,
-                    // and can't be modified once created. You are therefore encouraged to create them at
-                    // initialization and not the during performance-critical paths."
-                    // 1. Create an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPool.html
-                    // 2. Import this trait: https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/trait.DescriptorPool.html
-                    // 3. Allocate an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPoolAlloc.html and store it in modelhandle.
-                    // 4. replace .build() with .build_with_pool:
-                    //    https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.PersistentDescriptorSetBuilder.html#method.build_with_pool
-                    let set = Arc::new(
-                        PersistentDescriptorSet::start(layout.clone())
-                            .add_buffer(uniform_buffer_subbuffer)
-                            .unwrap()
-                            .add_sampled_image(texture.clone(), self.sampler.clone())
-                            .unwrap()
-                            .build()
-                            .unwrap(),
-                    );
-
-                    command_buffer_builder = command_buffer_builder
+                command_buffer_builder = if let Some(index) = group.index.as_ref() {
+                    command_buffer_builder
                         .draw_indexed(
                             self.pipeline.clone(),
                             &self.dynamic_state,
@@ -361,8 +335,18 @@ impl RenderPipeline {
                             set.clone(),
                             (),
                         )
-                        .unwrap();
-                }
+                        .unwrap()
+                } else {
+                    command_buffer_builder
+                        .draw(
+                            self.pipeline.clone(),
+                            &self.dynamic_state,
+                            vec![model.vertex_buffer.clone()],
+                            set,
+                            (),
+                        )
+                        .unwrap()
+                };
             }
         }
 
@@ -372,26 +356,36 @@ impl RenderPipeline {
             .build()
             .unwrap();
 
-        let future = start_future
-            .then_execute(self.queue.clone(), command_buffer)
-            .unwrap()
-            // The color output is now expected to contain our triangle. But in order to show it on
-            // the screen, we have to *present* the image by calling `present`.
-            //
-            // This function does not actually present the image immediately. Instead it submits a
-            // present command at the end of the queue. This means that it will only be presented once
-            // the GPU has finished executing the command buffer that draws the triangle.
-            .then_swapchain_present(self.queue.clone(), self.swapchain.clone(), image_num)
-            .then_signal_fence_and_flush();
+        let future = Box::new(
+            start_future
+                .then_execute(self.queue.clone(), command_buffer)
+                .unwrap()
+                // The color output is now expected to contain our triangle. But in order to show it on
+                // the screen, we have to *present* the image by calling `present`.
+                //
+                // This function does not actually present the image immediately. Instead it submits a
+                // present command at the end of the queue. This means that it will only be presented once
+                // the GPU has finished executing the command buffer that draws the triangle.
+                .then_swapchain_present(self.queue.clone(), self.swapchain.clone(), image_num),
+        ) as Box<dyn GpuFuture>;
+        let future = future.then_signal_fence_and_flush();
 
-        callback();
-
-        if let Err(e) = future {
-            if let FlushError::OutOfDate = e {
-                self.swapchain_needs_refresh = true;
-            } else {
-                eprintln!("Failed to flush future: {:?}", e);
+        match future {
+            Ok(f) => Some(f),
+            Err(e) => {
+                if let FlushError::OutOfDate = e {
+                    self.swapchain_needs_refresh = true;
+                } else {
+                    eprintln!("Failed to flush future: {:?}", e);
+                }
+                None
             }
+        }
+    }
+
+    pub fn finish_render(&mut self, future: Option<FenceSignalFuture<Box<dyn GpuFuture>>>) {
+        if let Some(future) = future {
+            future.wait(None).unwrap();
         }
     }
 }
