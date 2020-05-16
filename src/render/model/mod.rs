@@ -75,8 +75,18 @@ layout(location = 0) out vec2 fragment_tex_coord;
 layout(location = 1) out vec3 fragment_normal;
 
 struct DirectionalLight {
-    vec3 direction;
-    vec4 color;
+    float direction_x;
+    float direction_y;
+    float direction_z;
+    float color_ambient_r;
+    float color_ambient_g;
+    float color_ambient_b;
+    float color_diffuse_r;
+    float color_diffuse_g;
+    float color_diffuse_b;
+    float color_specular_r;
+    float color_specular_g;
+    float color_specular_b;
 };
 
 layout(set = 0, binding = 0) uniform Data {
@@ -113,8 +123,18 @@ layout(location = 1) in vec3 fragment_normal;
 layout(location = 0) out vec4 f_color;
 
 struct DirectionalLight {
-    vec3 direction;
-    vec4 color;
+    float direction_x;
+    float direction_y;
+    float direction_z;
+    float color_ambient_r;
+    float color_ambient_g;
+    float color_ambient_b;
+    float color_diffuse_r;
+    float color_diffuse_g;
+    float color_diffuse_b;
+    float color_specular_r;
+    float color_specular_g;
+    float color_specular_b;
 };
 
 layout(set = 0, binding = 1) uniform sampler2D tex;
@@ -130,6 +150,34 @@ layout(set = 0, binding = 0) uniform Data {
     float material_shininess;
 } uniforms;
 
+vec4 CalcDirLight(DirectionalLight light, vec4 tex_color, vec3 normal, vec3 viewDir)
+{
+    vec3 direction = vec3(light.direction_x, light.direction_y, light.direction_z);
+    vec3 ambient = vec3(light.color_ambient_r, light.color_ambient_g, light.color_ambient_b);
+    vec3 diffuse = vec3(light.color_diffuse_r, light.color_diffuse_g, light.color_diffuse_b);
+    vec3 specular = vec3(light.color_specular_r, light.color_specular_g, light.color_specular_b);
+
+    vec3 lightDir = normalize(-direction);
+    // diffuse shading
+    float diff = max(dot(normal, lightDir), 0.0);
+    // specular shading
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), uniforms.material_shininess);
+    // combine results
+    ambient  = ambient  * uniforms.material_ambient;
+    diffuse  = diffuse  * diff * uniforms.material_diffuse;
+    specular = specular * spec * uniforms.material_specular;
+    return tex_color * vec4(ambient + diffuse + specular, 1.0);
+} 
+
+vec3 max_member(vec3 lhs, vec3 rhs) {
+    return vec3(
+        max(lhs.x, rhs.x),
+        max(lhs.y, rhs.y),
+        max(lhs.z, rhs.z)
+    );
+}
+
 void main() {
     if(fragment_tex_coord.x < 0.0 && fragment_tex_coord.y < 0.0) {
         f_color = vec4(uniforms.material_ambient, 1);
@@ -137,20 +185,14 @@ void main() {
         f_color = texture(tex, fragment_tex_coord);
     }
     
-    vec4 light_color = vec4(0.0, 0.0, 0.0, 1.0); 
     for(int i = 0; i < uniforms.lightCount; i++) {
-        DirectionalLight light = uniforms.lights[i];
-        vec3 direction = vec3(light.direction.x, -light.direction.y, light.direction.z);
-        float brightness = dot(normalize(fragment_normal), normalize(direction));
-        vec4 color = light.color * brightness;
-        light_color = vec4(
-            max(light_color.x, color.x),
-            max(light_color.y, color.y),
-            max(light_color.z, color.z),
-            1.0
+        f_color = CalcDirLight(
+            uniforms.lights[i],
+            f_color,
+            fragment_normal,
+            vec3(0, 0, 0)
         );
     }
-    f_color *= light_color;
 }
 "
     }

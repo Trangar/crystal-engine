@@ -9,17 +9,14 @@ pub struct DirectionalLight {
     /// The direction of the light source
     pub direction: Vector3<f32>,
     /// The color of the light source.
-    pub color: Vector3<f32>,
-    /// The brightness of the light source.
-    pub brightness: f32,
+    pub color: LightColor,
 }
 
 impl Default for DirectionalLight {
     fn default() -> Self {
         Self {
             direction: Vector3::zero(),
-            color: Vector3::zero(),
-            brightness: 1.0,
+            color: LightColor::default(),
         }
     }
 }
@@ -31,7 +28,7 @@ pub struct PointLight {
     /// The position of the light in the world.
     pub position: Vector3<f32>,
     /// The color of the light in the world.
-    pub color: Vector3<f32>,
+    pub color: LightColor,
 
     /// The attenuation of the light, or how much the light decays over a distance.
     /// `PointLightAttenuation` implements `Default` so you can take a good initial value, or you
@@ -43,8 +40,28 @@ impl Default for PointLight {
     fn default() -> Self {
         Self {
             position: Vector3::zero(),
-            color: Vector3::zero(),
+            color: LightColor::default(),
             attenuation: PointLightAttenuation::default(),
+        }
+    }
+}
+
+/// The color of the light. This is divided in 3 fields: ambient, diffuse and specular. See each field for the definition.
+pub struct LightColor {
+    /// Determines the ambient color of the light. This will be merged with the ambient factor of the [Material].
+    pub ambient: Vector3<f32>,
+    /// Determines the diffuse color of the light. This will be merged with the diffuse factor of the [Material].
+    pub diffuse: Vector3<f32>,
+    /// Determines the specular color of the light. This will be merged with the specular factor of the [Material].
+    pub specular: Vector3<f32>,
+}
+
+impl Default for LightColor {
+    fn default() -> Self {
+        LightColor {
+            ambient: Vector3::zero(),
+            diffuse: Vector3::zero(),
+            specular: Vector3::zero(),
         }
     }
 }
@@ -130,19 +147,33 @@ impl FixedVec<DirectionalLight> {
     }
     pub(crate) fn to_shader_value(&self) -> (i32, [model_vs::ty::DirectionalLight; LIGHT_COUNT]) {
         let mut result = [model_vs::ty::DirectionalLight {
-            direction: [0.0, -1.0, 0.0],
-            color: [1.0, 1.0, 1.0, 1.0],
-            _dummy0: [0, 0, 0, 0],
+            direction_x: 0.0,
+            direction_y: 0.0,
+            direction_z: 0.0,
+            color_ambient_r: 1.0,
+            color_ambient_g: 1.0,
+            color_ambient_b: 1.0,
+            color_diffuse_r: 1.0,
+            color_diffuse_g: 1.0,
+            color_diffuse_b: 1.0,
+            color_specular_r: 1.0,
+            color_specular_g: 1.0,
+            color_specular_b: 1.0,
         }; 100];
 
         for (light, shader_light) in self.data.iter().take(self.len).zip(result.iter_mut()) {
-            shader_light.direction = light.direction.into();
-            shader_light.color = [
-                light.color.x,
-                light.color.y,
-                light.color.z,
-                light.brightness,
-            ];
+            shader_light.direction_x = light.direction.x;
+            shader_light.direction_y = light.direction.y;
+            shader_light.direction_z = light.direction.z;
+            shader_light.color_ambient_r = light.color.ambient.x;
+            shader_light.color_ambient_g = light.color.ambient.y;
+            shader_light.color_ambient_b = light.color.ambient.z;
+            shader_light.color_diffuse_r = light.color.diffuse.x;
+            shader_light.color_diffuse_g = light.color.diffuse.x;
+            shader_light.color_diffuse_b = light.color.diffuse.z;
+            shader_light.color_specular_r = light.color.specular.x;
+            shader_light.color_specular_g = light.color.specular.y;
+            shader_light.color_specular_b = light.color.specular.z;
         }
 
         (self.len() as i32, result)

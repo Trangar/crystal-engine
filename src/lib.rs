@@ -67,7 +67,10 @@ mod render;
 
 pub use self::{
     game_state::GameState,
-    render::{DirectionalLight, ModelData, ModelHandle, PointLight, PointLightAttenuation, Window},
+    render::{
+        DirectionalLight, LightColor, ModelData, ModelHandle, PointLight, PointLightAttenuation,
+        Window,
+    },
 };
 
 /// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.
