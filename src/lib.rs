@@ -4,7 +4,7 @@
 //!
 //! ```no_run
 //! use cgmath::{Matrix4, Point3, Rad, Vector3};
-//! use crystal_engine::{GameState, ModelHandle, Window, VirtualKeyCode};
+//! use crystal_engine::{GameState, ModelHandle, Window, event::VirtualKeyCode};
 //!
 //! fn main() {
 //!     // Create a new instance of your game and run it
@@ -21,13 +21,10 @@
 //!     fn init(state: &mut GameState) -> Self {
 //!         // Load an object. This will automatically be rendered every frame
 //!         // as long as the returned ModelHandle is not dropped.
-//!         let model = state.create_model_from_obj("assets/some_object.obj");
-//!
-//!         // You can move the model around by calling `.modify`
-//!         model.modify(|data| {
-//!             data.position.y = -3.0;
-//!             data.scale = 0.3;
-//!         });
+//!         let model = state.new_obj_model("assets/some_object.obj")
+//!             .with_position((0.0, -3.0, 0.0))
+//!             .with_scale(0.3)
+//!             .build();
 //!
 //!         // Update the camera by manipulating the state's field
 //!         state.camera = Matrix4::look_at(

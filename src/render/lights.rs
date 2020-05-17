@@ -5,6 +5,8 @@ use cgmath::{Vector3, Zero};
 ///
 /// Note: lights coming from the sky are going down, so their direction would be `Vector3::new(0.0,
 /// -1.0, 0.0)`
+///
+/// For more information, see the amazing tutorial at [https://learnopengl.com/Lighting/Colors](https://learnopengl.com/Lighting/Colors)
 pub struct DirectionalLight {
     /// The direction of the light source
     pub direction: Vector3<f32>,
@@ -24,6 +26,8 @@ impl Default for DirectionalLight {
 /// A pointlight in the world.
 ///
 /// Note: Not implemented yet
+///
+/// For more information, see the amazing tutorial at [https://learnopengl.com/Lighting/Colors](https://learnopengl.com/Lighting/Colors)
 pub struct PointLight {
     /// The position of the light in the world.
     pub position: Vector3<f32>,
@@ -47,12 +51,26 @@ impl Default for PointLight {
 }
 
 /// The color of the light. This is divided in 3 fields: ambient, diffuse and specular. See each field for the definition.
+///
+/// For more information, see the amazing tutorial at [https://learnopengl.com/Lighting/Colors](https://learnopengl.com/Lighting/Colors)
 pub struct LightColor {
-    /// Determines the ambient color of the light. This will be merged with the ambient factor of the [Material].
+    /// Even when it is dark there is usually still some light somewhere in the world (the moon, a distant light) so objects are almost never completely dark.
+    /// To simulate this we use an ambient lighting constant that always gives the object some color.
+    ///
+    /// This will be merged with the ambient factor of the material of your model.
     pub ambient: Vector3<f32>,
-    /// Determines the diffuse color of the light. This will be merged with the diffuse factor of the [Material].
+
+    /// Diffuse light simulates the directional impact a light object has on an object.
+    /// This is the most visually significant component of the lighting model.
+    /// The more a part of an object faces the light source, the brighter it becomes.
+    ///
+    /// This will be merged with the diffuse factor of the material of your model.
     pub diffuse: Vector3<f32>,
-    /// Determines the specular color of the light. This will be merged with the specular factor of the [Material].
+
+    /// Specular light simulates the bright spot of a light that appears on shiny objects.
+    /// Specular highlights are more inclined to the color of the light than the color of the object.
+    ///
+    /// This will be merged with the specular factor of the material of your model.
     pub specular: Vector3<f32>,
 }
 
@@ -124,27 +142,49 @@ impl LightState {
 const LIGHT_COUNT: usize = 100;
 /// A fixed vec of light sources. This is limited to 100 entries because of a limitation in the way
 /// Crystal's shaders are implemented. Please open an issue if you need more light sources.
+///
+/// This should mirror most functions that exist on [Vec]. If you're missing a function, feel free to open an issue or PR!
 pub struct FixedVec<T> {
     pub(crate) data: [T; LIGHT_COUNT],
     len: usize,
 }
 
+/// Init an array of type `T` with size `LIGHT_COUNT`.
+///
+/// # Safety
+///
+/// This is only tested with `DirectionalLight` and `PointLight`.
+/// Using this with any other type could be unsafe.
+/// Using this with a zero-sized type (e.g. `&`, `&mut` or `()`) is DEFINITELY unsafe.
+/// Make sure your type has a size and is not a reference.
+unsafe fn init_array<T: Default>() -> [T; LIGHT_COUNT] {
+    use std::mem::MaybeUninit;
+
+    let mut data: [MaybeUninit<T>; LIGHT_COUNT] = MaybeUninit::uninit().assume_init();
+
+    for elem in &mut data[..] {
+        *elem = MaybeUninit::new(T::default());
+    }
+
+    // using `std::mem::unsafe { transmute(data) }` does not work here, because T might be zero-sized or something else
+    // So we need to execute this pointer hack
+    // For more information, see: https://github.com/rust-lang/rust/issues/61956
+    let ptr = &mut data as *mut _ as *mut [T; LIGHT_COUNT];
+    let res = ptr.read();
+    std::mem::forget(data);
+
+    res
+}
+
 impl FixedVec<DirectionalLight> {
     pub(crate) fn new() -> Self {
-        use std::mem::{transmute, MaybeUninit};
-
-        let mut data: [MaybeUninit<DirectionalLight>; LIGHT_COUNT] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-
-        for elem in &mut data[..] {
-            *elem = MaybeUninit::new(DirectionalLight::default());
-        }
-
         Self {
-            data: unsafe { transmute(data) },
+            // safe because this is a `DirectionalLight` which has a size and is not a reference
+            data: unsafe { init_array() },
             len: 0,
         }
     }
+
     pub(crate) fn to_shader_value(&self) -> (i32, [model_vs::ty::DirectionalLight; LIGHT_COUNT]) {
         let mut result = [model_vs::ty::DirectionalLight {
             direction_x: 0.0,
@@ -182,23 +222,30 @@ impl FixedVec<DirectionalLight> {
 
 impl FixedVec<PointLight> {
     pub(crate) fn new() -> Self {
-        use std::mem::{transmute, MaybeUninit};
-
-        let mut data: [MaybeUninit<PointLight>; LIGHT_COUNT] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-
-        for elem in &mut data[..] {
-            *elem = MaybeUninit::new(PointLight::default());
-        }
-
         Self {
-            data: unsafe { transmute(data) },
+            // safe because this is a `PointLight` which has a size and is not a reference
+            data: unsafe { init_array() },
             len: 0,
         }
     }
 }
 
+// Implementation of relevant std::vec::Vec functions
 impl<T> FixedVec<T> {
+    /// Extracts a slice containing the entire fixed vec.
+    ///
+    /// Equivalent to `&s[..]`.
+    pub fn as_slice(&self) -> &[T] {
+        &self.data[..self.len]
+    }
+
+    /// Extracts a mutable slice of the entire fixed vec.
+    ///
+    /// Equivalent to `&mut s[..]`.
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        &mut self.data[..self.len]
+    }
+
     /// Get the amount of lights that are stored in this `FixedVec`.
     ///
     /// Note: this is always 100 or lower.

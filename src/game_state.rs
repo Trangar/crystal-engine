@@ -82,9 +82,11 @@ impl GameState {
 
     /// Set the cursor position. This is short for:
     ///
-    /// ```rust
+    /// ```rust, no_run
+    /// # use crystal_engine::*;
+    /// # let state: GameState = unsafe { std::mem::zeroed() };
     /// state.window()
-    ///      .set_cursor_position(winit::dpi::PhysicalPosition::new(position.0, position.1))
+    ///      .set_cursor_position(winit::dpi::PhysicalPosition::new(0u32, 0u32))
     ///      .unwrap();
     /// ```
     ///
@@ -104,9 +106,20 @@ impl GameState {
     }
 
     /// Create a new triangle at the origin of the world.
-    /// See [ModelHandle] for information on how to move and rotate the triangle.
     ///
-    /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
+    /// See [ModelHandle] for information on how to move, rotate and clone the triangle.
+    ///
+    /// Note: you *must* store the handle somewhere. When the handle is dropped, the rectangle is removed from your world and resources are unloaded.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crystal_engine::*;
+    /// # let mut game_state: GameState = unsafe { std::mem::zeroed() };
+    /// let triangle: ModelHandle = game_state.new_triangle_model()
+    ///     .build();
+    /// ```
+    /// [ModelHandle]: ./struct.ModelHandle.html
     pub fn new_triangle_model(&mut self) -> ModelBuilder {
         ModelBuilder::new(self, SourceOrShape::Triangle)
     }
@@ -114,31 +127,43 @@ impl GameState {
     /// Create a new rectangle at the origin of the world. This can be useful to render simple
     /// textures in the world.
     ///
-    /// See [ModelHandle] for information on how to move and rotate the triangle.
+    /// See [ModelHandle] for information on how to move, rotate and clone the rectangle.
     ///
-    /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
+    /// Note: you *must* store the handle somewhere. When the handle is dropped, the rectangle is removed from your world and resources are unloaded.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use crystal_engine::*;
+    /// # let mut game_state: GameState = unsafe { std::mem::zeroed() };
+    /// let rust_logo: ModelHandle = game_state.new_rectangle_model()
+    ///     .with_texture_from_file("assets/rust_logo.png")
+    ///     .build();
+    /// ```
+    ///
+    /// [ModelHandle]: ./struct.ModelHandle.html
     pub fn new_rectangle_model(&mut self) -> ModelBuilder {
         ModelBuilder::new(self, SourceOrShape::Rectangle)
     }
 
     #[cfg(feature = "format-obj")]
     /// Load a model from the given path and place it at the origin of the world.
-    /// See [ModelHandle] for information on how to move and rotate the triangle.
-    ///
-    /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
+    /// See [ModelHandle] for information on how to move, rotate and clone the model.
     ///
     /// This method is only available when the `format-obj` feature is enabled.
+    ///
+    /// [ModelHandle]: ./struct.ModelHandle.html
     pub fn new_obj_model<'a>(&'a mut self, path: &'a str) -> ModelBuilder<'a> {
         ModelBuilder::new(self, SourceOrShape::Obj(path))
     }
 
     #[cfg(feature = "format-fbx")]
     /// Load a model from the given path and place it at the origin of the world.
-    /// See [ModelHandle] for information on how to move and rotate the triangle.
-    ///
-    /// To create a second instance with the same model, simply call [ModelHandle::clone](struct.ModelHandle.html#impl-Clone)
+    /// See [ModelHandle] for information on how to move, rotate and clone the model.
     ///
     /// This method is only available when the `format-fbx` feature is enabled.
+    ///
+    /// [ModelHandle]: ./struct.ModelHandle.html
     pub fn new_fbx_model<'a>(&'a mut self, path: &'a str) -> ModelBuilder<'a> {
         ModelBuilder::new(self, SourceOrShape::Fbx(path))
     }
@@ -146,7 +171,10 @@ impl GameState {
 
 /// The state of the keyboard. This can be used to check which keys are pressed during the current frame.
 ///
-/// Note: when handling [Game::keydown](../trait.Game.html#method.keydown), the [GameState] will be updated *before* the keydown method is called.
+/// Note: when implementing [Game] and handling `keydown` or `keyup`, the [GameState] will be updated *before* the keydown method is called.
+///
+/// [GameState]: ../struct.GameState.html
+/// [Game]: ../trait.Game.html
 pub struct KeyboardState {
     pub(crate) pressed: HashSet<VirtualKeyCode>,
 }
