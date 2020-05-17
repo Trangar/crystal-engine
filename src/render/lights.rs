@@ -149,82 +149,34 @@ pub struct FixedVec<T> {
     len: usize,
 }
 
-/// Init an array of type `T` with size `LIGHT_COUNT`.
-///
-/// # Safety
-///
-/// This is only tested with `DirectionalLight` and `PointLight`.
-/// Using this with any other type could be unsafe.
-/// Using this with a zero-sized type (e.g. `&`, `&mut` or `()`) is DEFINITELY unsafe.
-/// Make sure your type has a size and is not a reference.
-unsafe fn init_array<T: Default>() -> [T; LIGHT_COUNT] {
-    use std::mem::MaybeUninit;
-
-    let mut data: [MaybeUninit<T>; LIGHT_COUNT] = MaybeUninit::uninit().assume_init();
-
-    for elem in &mut data[..] {
-        *elem = MaybeUninit::new(T::default());
-    }
-
-    // using `std::mem::unsafe { transmute(data) }` does not work here, because T might be zero-sized or something else
-    // So we need to execute this pointer hack
-    // For more information, see: https://github.com/rust-lang/rust/issues/61956
-    let ptr = &mut data as *mut _ as *mut [T; LIGHT_COUNT];
-    let res = ptr.read();
-    std::mem::forget(data);
-
-    res
-}
-
 impl FixedVec<DirectionalLight> {
-    pub(crate) fn new() -> Self {
-        Self {
-            // safe because this is a `DirectionalLight` which has a size and is not a reference
-            data: unsafe { init_array() },
-            len: 0,
-        }
-    }
-
     pub(crate) fn to_shader_value(&self) -> (i32, [model_vs::ty::DirectionalLight; LIGHT_COUNT]) {
-        let mut result = [model_vs::ty::DirectionalLight {
-            direction_x: 0.0,
-            direction_y: 0.0,
-            direction_z: 0.0,
-            color_ambient_r: 1.0,
-            color_ambient_g: 1.0,
-            color_ambient_b: 1.0,
-            color_diffuse_r: 1.0,
-            color_diffuse_g: 1.0,
-            color_diffuse_b: 1.0,
-            color_specular_r: 1.0,
-            color_specular_g: 1.0,
-            color_specular_b: 1.0,
-        }; 100];
-
-        for (light, shader_light) in self.data.iter().take(self.len).zip(result.iter_mut()) {
-            shader_light.direction_x = light.direction.x;
-            shader_light.direction_y = light.direction.y;
-            shader_light.direction_z = light.direction.z;
-            shader_light.color_ambient_r = light.color.ambient.x;
-            shader_light.color_ambient_g = light.color.ambient.y;
-            shader_light.color_ambient_b = light.color.ambient.z;
-            shader_light.color_diffuse_r = light.color.diffuse.x;
-            shader_light.color_diffuse_g = light.color.diffuse.x;
-            shader_light.color_diffuse_b = light.color.diffuse.z;
-            shader_light.color_specular_r = light.color.specular.x;
-            shader_light.color_specular_g = light.color.specular.y;
-            shader_light.color_specular_b = light.color.specular.z;
-        }
-
+        let result = array_init::array_init(|i| {
+            let light = &self.data[i];
+            model_vs::ty::DirectionalLight {
+                direction_x: light.direction.x,
+                direction_y: light.direction.y,
+                direction_z: light.direction.z,
+                color_ambient_r: light.color.ambient.x,
+                color_ambient_g: light.color.ambient.y,
+                color_ambient_b: light.color.ambient.z,
+                color_diffuse_r: light.color.diffuse.x,
+                color_diffuse_g: light.color.diffuse.x,
+                color_diffuse_b: light.color.diffuse.z,
+                color_specular_r: light.color.specular.x,
+                color_specular_g: light.color.specular.y,
+                color_specular_b: light.color.specular.z,
+            }
+        });
         (self.len() as i32, result)
     }
 }
 
-impl FixedVec<PointLight> {
+impl<T: Default> FixedVec<T> {
     pub(crate) fn new() -> Self {
         Self {
-            // safe because this is a `PointLight` which has a size and is not a reference
-            data: unsafe { init_array() },
+            // safe because this is a `DirectionalLight` which has a size and is not a reference
+            data: array_init::array_init(|_| T::default()),
             len: 0,
         }
     }

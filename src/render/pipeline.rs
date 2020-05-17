@@ -1,4 +1,7 @@
-use super::model::{fs as model_fs, vs as model_vs};
+use super::{
+    model::{fs as model_fs, vs as model_vs},
+    Material,
+};
 use crate::ModelData;
 use cgmath::{Matrix4, Rad, Zero};
 use parking_lot::RwLock;
@@ -271,20 +274,7 @@ impl RenderPipeline {
             0.01,
             100.0,
         );
-        let mut data = model_vs::ty::Data {
-            world: Matrix4::zero().into(),
-            view: camera.into(),
-            proj: proj.into(),
-            lights: directional_lights.1,
-            lightCount: directional_lights.0,
-            material_ambient: [0.0, 0.0, 0.0],
-            _dummy0: [0u8; 12],
-            material_diffuse: [0.0, 0.0, 0.0],
-            _dummy1: [0u8; 4],
-            material_specular: [0.0, 0.0, 0.0],
-            _dummy2: [0u8; 4],
-            material_shininess: 0.0,
-        };
+        let mut data = default_uniform(camera, proj, directional_lights);
 
         // Build a list of futures that need to be processed before this frame is drawn
         let mut start_future = Box::new(acquire_future) as Box<dyn GpuFuture>;
@@ -312,17 +302,8 @@ impl RenderPipeline {
                     .clone();
 
                 data.world = (base_matrix * group_data.matrix).into();
-                if let Some(material) = group.material.as_ref() {
-                    data.material_ambient = material.ambient;
-                    data.material_specular = material.specular;
-                    data.material_diffuse = material.diffuse;
-                    data.material_shininess = material.shininess;
-                } else {
-                    data.material_ambient = [1.0, 0.0, 0.0];
-                    data.material_specular = [1.0, 0.0, 0.0];
-                    data.material_diffuse = [1.0, 0.0, 0.0];
-                    data.material_shininess = 1.0;
-                }
+                update_uniform_material(&mut data, group.material.as_ref());
+
                 let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
 
                 // TODO: We should probably cache the set in a pool
@@ -406,6 +387,54 @@ impl RenderPipeline {
             future.wait(None).unwrap();
         }
     }
+}
+
+fn default_uniform(
+    camera: Matrix4<f32>,
+    proj: Matrix4<f32>,
+    directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
+) -> model_vs::ty::Data {
+    use cgmath::Vector3;
+
+    let cells: &[f32; 16] = camera.as_ref();
+    let camera_pos = Vector3::new(cells[12], cells[13], cells[14]);
+    println!("Camera position: {:?}", camera_pos);
+
+    model_vs::ty::Data {
+        world: Matrix4::zero().into(),
+        view: camera.into(),
+        proj: proj.into(),
+        lights: directional_lights.1,
+        lightCount: directional_lights.0,
+
+        camera_x: camera_pos.x,
+        camera_y: camera_pos.y,
+        camera_z: camera_pos.z,
+        material_ambient_r: 0.0,
+        material_ambient_g: 0.0,
+        material_ambient_b: 0.0,
+        material_diffuse_r: 0.0,
+        material_diffuse_g: 0.0,
+        material_diffuse_b: 0.0,
+        material_specular_r: 0.0,
+        material_specular_g: 0.0,
+        material_specular_b: 0.0,
+        material_shininess: 0.0,
+    }
+}
+
+fn update_uniform_material(data: &mut model_vs::ty::Data, material: Option<&Material>) {
+    let material = material.cloned().unwrap_or_default();
+    data.material_ambient_r = material.ambient[0];
+    data.material_ambient_g = material.ambient[1];
+    data.material_ambient_b = material.ambient[2];
+    data.material_specular_r = material.specular[0];
+    data.material_specular_g = material.specular[1];
+    data.material_specular_b = material.specular[2];
+    data.material_diffuse_r = material.diffuse[0];
+    data.material_diffuse_g = material.diffuse[1];
+    data.material_diffuse_b = material.diffuse[2];
+    data.material_shininess = material.shininess;
 }
 
 fn generate_empty_texture(

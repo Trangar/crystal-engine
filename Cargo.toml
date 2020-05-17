@@ -15,10 +15,11 @@ vulkano = "0.18.0"
 vulkano-win = "0.18.0"
 vulkano-shaders = "0.18.0"
 png = "0.16.3"
-winit = "0.22.1"
+winit = "0.22.2"
 cgmath = "0.17.0"
 rand = "0.7.3"
 parking_lot = "0.10.2"
+array-init = "0.1.1"
 
 # Optional dependencies, these are only included when they are needed for features
 genmesh = { version = "0.6.2", optional = true }
