@@ -27,6 +27,7 @@ pub fn load(src: &str) -> ParsedModel {
                     None
                 }
             }) {
+                let object: fbxcel_dom::v7400::object::model::MeshHandle = object;
                 let geometry: MeshHandle = object.geometry().unwrap();
 
                 let polygon_vertices = geometry
@@ -106,6 +107,17 @@ pub fn load(src: &str) -> ParsedModel {
                         normal_in,
                         tex_coord_in,
                     });
+                }
+
+                for material in object.materials() {
+                    let material: fbxcel_dom::v7400::object::material::MaterialHandle = material;
+                    if let Some((clip, data)) = material
+                        .diffuse_texture()
+                        .and_then(|t| t.video_clip())
+                        .and_then(|v| v.content().map(|data| (v, data)))
+                    {
+                        println!("Material: {:?}", clip.relative_filename());
+                    }
                 }
             }
         }

@@ -144,7 +144,7 @@ impl RenderPipeline {
         )
         .unwrap();
 
-        let (empty_texture, fut) = generate_empty_texture(queue.clone(), (255, 0, 0, 255));
+        let (empty_texture, fut) = generate_empty_texture(queue.clone(), [255, 0, 0, 255]);
 
         Self {
             device,
@@ -394,11 +394,7 @@ fn default_uniform(
     proj: Matrix4<f32>,
     directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
 ) -> model_vs::ty::Data {
-    use cgmath::Vector3;
-
-    let cells: &[f32; 16] = camera.as_ref();
-    let camera_pos = Vector3::new(cells[12], cells[13], cells[14]);
-    println!("Camera position: {:?}", camera_pos);
+    let camera_pos = -camera.z.truncate();
 
     model_vs::ty::Data {
         world: Matrix4::zero().into(),
@@ -439,41 +435,19 @@ fn update_uniform_material(data: &mut model_vs::ty::Data, material: Option<&Mate
 
 fn generate_empty_texture(
     queue: Arc<Queue>,
-    color: (u8, u8, u8, u8),
+    color: [u8; 4],
 ) -> (
     Arc<ImmutableImage<R8G8B8A8Srgb>>,
     CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
 ) {
-    let dimensions = Dimensions::Dim2d {
-        width: 1,
-        height: 1,
-    };
-    let image_data = vec![color.0, color.1, color.2, color.3];
-
-    ImmutableImage::from_iter(image_data.iter().cloned(), dimensions, R8G8B8A8Srgb, queue).unwrap()
+    ImmutableImage::from_iter(
+        color.iter().cloned(),
+        Dimensions::Dim2d {
+            width: 1,
+            height: 1,
+        },
+        R8G8B8A8Srgb,
+        queue,
+    )
+    .unwrap()
 }
-
-/*
-// TODO: These should be loaded per-model based on the texture the model wants.
-fn test_load_texture(
-    queue: Arc<Queue>,
-) -> (
-    Arc<ImmutableImage<R8G8B8A8Srgb>>,
-    CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
-) {
-    use std::io::Cursor;
-    let png_bytes = include_bytes!("../../../assets/rust_logo.png").to_vec();
-    let cursor = Cursor::new(png_bytes);
-    let decoder = png::Decoder::new(cursor);
-    let (info, mut reader) = decoder.read_info().unwrap();
-    let dimensions = Dimensions::Dim2d {
-        width: info.width,
-        height: info.height,
-    };
-    let mut image_data = Vec::new();
-    image_data.resize((info.width * info.height * 4) as usize, 0);
-    reader.next_frame(&mut image_data).unwrap();
-
-    ImmutableImage::from_iter(image_data.iter().cloned(), dimensions, R8G8B8A8Srgb, queue).unwrap()
-}
-*/
