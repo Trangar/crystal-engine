@@ -15,7 +15,7 @@ jobs:
     
     strategy:
       matrix:
-        features: ['', 'format-fbx', 'format-obj', 'format-obj format-fbx']
+        features: ['dummy', 'format-fbx', 'format-obj', 'format-obj format-fbx']
         os: [ubuntu-latest, windows-latest, macOS-latest]
    
     steps:

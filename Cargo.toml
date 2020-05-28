@@ -33,4 +33,4 @@ anyhow = { version = "1", optional = true } # dependent on fbxcel-dom
 default = ["format-obj", "format-fbx"]
 format-obj = ['obj', 'genmesh']
 format-fbx = ["fbxcel-dom", "anyhow"]
-
+dummy = [] # dummy feature for CI tools
