@@ -2,7 +2,7 @@
 
 use rgb::RGB;
 
-use crate::render::model::loader::fbx::data::TextureIndex;
+use crate::model::loader::fbx::data::TextureIndex;
 
 /// Material.
 #[derive(Debug, Clone)]

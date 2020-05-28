@@ -1,5 +1,5 @@
-use super::{model::ModelHandleMessage, RenderPipeline};
-use crate::{Game, GameState};
+use super::RenderPipeline;
+use crate::{model::ModelHandleMessage, Game, GameState};
 use std::sync::mpsc::{channel, Receiver};
 use vulkano::{
     device::{Device, DeviceExtensions, Features},

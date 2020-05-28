@@ -1,4 +1,4 @@
-use super::model::vs as model_vs;
+use crate::model::vs as model_vs;
 use cgmath::{Vector3, Zero};
 
 /// A direction lightsource in the world.

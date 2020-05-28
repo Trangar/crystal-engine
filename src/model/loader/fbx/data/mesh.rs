@@ -1,6 +1,6 @@
 //! Mesh.
 
-use crate::render::model::loader::fbx::data::{GeometryMeshIndex, MaterialIndex};
+use crate::model::loader::fbx::data::{GeometryMeshIndex, MaterialIndex};
 
 /// Mesh.
 #[derive(Debug, Clone)]

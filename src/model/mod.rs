@@ -12,7 +12,7 @@ pub use self::{
     render::{fs, vs},
 };
 
-use super::{Material, Vertex};
+use crate::render::{Material, Vertex};
 use loader::ParsedModelPart;
 use parking_lot::RwLock;
 use std::sync::Arc;

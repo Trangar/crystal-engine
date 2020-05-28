@@ -1,4 +1,7 @@
-use crate::render::{LightState, ModelBuilder, ModelData, ModelHandleMessage, SourceOrShape};
+use crate::{
+    model::{ModelBuilder, ModelData, ModelHandleMessage, SourceOrShape},
+    render::LightState,
+};
 use cgmath::{Matrix4, SquareMatrix};
 use parking_lot::RwLock;
 use std::{

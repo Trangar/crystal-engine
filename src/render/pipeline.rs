@@ -1,5 +1,4 @@
-use super::model::{fs as model_fs, vs as model_vs};
-use crate::ModelData;
+use crate::model::{fs as model_fs, vs as model_vs, ModelData};
 use cgmath::{Matrix4, Rad, Zero};
 use parking_lot::RwLock;
 use std::{mem, sync::Arc};

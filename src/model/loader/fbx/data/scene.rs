@@ -1,7 +1,9 @@
 //! Scene.
 
-use crate::render::model::loader::fbx::data::{GeometryMesh, Material, Mesh, Texture};
-use crate::render::model::loader::ParsedModel;
+use crate::model::loader::{
+    fbx::data::{GeometryMesh, Material, Mesh, Texture},
+    ParsedModel,
+};
 
 /// Scene.
 #[derive(Default, Debug, Clone)]
