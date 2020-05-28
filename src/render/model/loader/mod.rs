@@ -30,7 +30,7 @@ impl SourceOrShape<'_> {
             SourceOrShape::Obj(src) => obj::load(src),
 
             #[cfg(feature = "format-fbx")]
-            SourceOrShape::Fbx(src) => fbx::load(src),
+            SourceOrShape::Fbx(src) => fbx::load(src).expect("Could not load FBX").into(),
             SourceOrShape::Rectangle => RECTANGLE.clone().into(),
             SourceOrShape::Triangle => TRIANGLE.clone().into(),
             SourceOrShape::Dummy(_) => unreachable!(),
@@ -38,6 +38,7 @@ impl SourceOrShape<'_> {
     }
 }
 
+#[derive(Default)]
 pub struct ParsedModel {
     pub vertices: CowVertex,
     pub parts: Vec<ParsedModelPart>,
@@ -67,6 +68,7 @@ impl From<(CowVertex, CowIndex)> for ParsedModel {
     }
 }
 
+#[derive(Default)]
 pub struct ParsedModelPart {
     pub index: Cow<'static, [u32]>,
     pub material: Option<Material>,

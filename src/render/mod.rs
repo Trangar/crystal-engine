@@ -14,10 +14,21 @@ pub struct Vertex {
 }
 vulkano::impl_vertex!(Vertex, position_in, normal_in, tex_coord_in);
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Material {
     pub ambient: [f32; 3],
     pub diffuse: [f32; 3],
     pub specular: [f32; 3],
     pub shininess: f32,
+}
+
+impl Default for Material {
+    fn default() -> Self {
+        Self {
+            ambient: [1.0, 1.0, 1.0],
+            diffuse: [1.0, 1.0, 1.0],
+            specular: [1.0, 1.0, 1.0],
+            shininess: 1.0,
+        }
+    }
 }

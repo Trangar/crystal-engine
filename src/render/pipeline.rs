@@ -1,7 +1,4 @@
-use super::{
-    model::{fs as model_fs, vs as model_vs},
-    Material,
-};
+use super::model::{fs as model_fs, vs as model_vs};
 use crate::ModelData;
 use cgmath::{Matrix4, Rad, Zero};
 use parking_lot::RwLock;
@@ -11,7 +8,6 @@ use vulkano::{
     command_buffer::{
         AutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferExecFuture, DynamicState,
     },
-    descriptor::descriptor_set::PersistentDescriptorSet,
     device::{Device, Queue},
     format::{Format, R8G8B8A8Srgb},
     framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass},
@@ -285,68 +281,22 @@ impl RenderPipeline {
 
         for handle in models {
             let handle = handle.read();
-            let model = &handle.model;
-            if !model.texture_future.read().is_empty() {
-                let texture_futures = mem::replace(&mut *model.texture_future.write(), Vec::new());
-                for fut in texture_futures {
-                    start_future = Box::new(start_future.join(fut)) as _;
-                }
-            }
-            let base_matrix = handle.matrix();
 
-            for (group, group_data) in model.groups.iter().zip(handle.groups.iter()) {
-                let texture = group
-                    .texture
-                    .as_ref()
-                    .unwrap_or(&self.empty_texture)
-                    .clone();
-
-                data.world = (base_matrix * group_data.matrix).into();
-                update_uniform_material(&mut data, group.material.as_ref());
-
-                let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
-
-                // TODO: We should probably cache the set in a pool
-                // From the documentation: "Creating a persistent descriptor set allocates from a pool,
-                // and can't be modified once created. You are therefore encouraged to create them at
-                // initialization and not the during performance-critical paths."
-                // 1. Create an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPool.html
-                // 2. Import this trait: https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/trait.DescriptorPool.html
-                // 3. Allocate an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPoolAlloc.html and store it in modelhandle.
-                // 4. replace .build() with .build_with_pool:
-                //    https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.PersistentDescriptorSetBuilder.html#method.build_with_pool
-                let set = Arc::new(
-                    PersistentDescriptorSet::start(layout.clone())
-                        .add_buffer(uniform_buffer_subbuffer)
-                        .unwrap()
-                        .add_sampled_image(texture, self.sampler.clone())
-                        .unwrap()
-                        .build()
-                        .unwrap(),
-                );
-                command_buffer_builder = if let Some(index) = group.index.as_ref() {
-                    command_buffer_builder
-                        .draw_indexed(
-                            self.pipeline.clone(),
-                            &self.dynamic_state,
-                            vec![model.vertex_buffer.clone()],
-                            index.clone(),
-                            set.clone(),
-                            (),
-                        )
-                        .unwrap()
-                } else {
-                    command_buffer_builder
-                        .draw(
-                            self.pipeline.clone(),
-                            &self.dynamic_state,
-                            vec![model.vertex_buffer.clone()],
-                            set,
-                            (),
-                        )
-                        .unwrap()
-                };
-            }
+            let result = handle.model.render(
+                start_future,
+                &handle.groups,
+                handle.matrix(),
+                &self.empty_texture,
+                &mut self.uniform_buffer,
+                &mut data,
+                &layout,
+                &self.sampler,
+                command_buffer_builder,
+                &self.pipeline,
+                &self.dynamic_state,
+            );
+            command_buffer_builder = result.0;
+            start_future = result.1;
         }
 
         let command_buffer = command_buffer_builder
@@ -418,21 +368,6 @@ fn default_uniform(
         material_shininess: 0.0,
     }
 }
-
-fn update_uniform_material(data: &mut model_vs::ty::Data, material: Option<&Material>) {
-    let material = material.cloned().unwrap_or_default();
-    data.material_ambient_r = material.ambient[0];
-    data.material_ambient_g = material.ambient[1];
-    data.material_ambient_b = material.ambient[2];
-    data.material_specular_r = material.specular[0];
-    data.material_specular_g = material.specular[1];
-    data.material_specular_b = material.specular[2];
-    data.material_diffuse_r = material.diffuse[0];
-    data.material_diffuse_g = material.diffuse[1];
-    data.material_diffuse_b = material.diffuse[2];
-    data.material_shininess = material.shininess;
-}
-
 fn generate_empty_texture(
     queue: Arc<Queue>,
     color: [u8; 4],

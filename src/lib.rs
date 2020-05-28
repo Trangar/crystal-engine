@@ -61,6 +61,7 @@
 
 mod game_state;
 mod render;
+mod util;
 
 pub use self::{
     game_state::GameState,
