@@ -1,10 +1,6 @@
 name: Rust
 
-on:
-  push:
-    branches: '*'
-  pull_request:
-    branches: '*'
+on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,9 +16,56 @@ jobs:
    
     steps:
     - uses: actions/checkout@v2
+
+    - name: Install stable toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
     - name: Install ninja-build tool
       uses: seanmiddleditch/gha-setup-ninja@v1
+      
     - name: Build
-      run: cargo build --verbose --no-default-features --features "${{ matrix.features }}"
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --verbose --no-default-features --features "${{ matrix.features }}"
     - name: Run tests
-      run: cargo test --verbose --no-default-features --features "${{ matrix.features }}"
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --verbose --no-default-features --features "${{ matrix.features }}"
+
+  clippy_check_ng:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        components: clippy
+        override: true
+    - uses: actions-rs/clippy@master
+
+
+  rustfmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v2
+
+    - name: Install nightly toolchain with rustfmt available
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: nightly
+        override: true
+        components: rustfmt
+
+    - name: Run cargo fmt
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all -- --check
