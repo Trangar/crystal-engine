@@ -1,0 +1,26 @@
+name: Rust
+
+on:
+  push:
+    branches: '*'
+  pull_request:
+    branches: '*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        features: ['', 'format-fbx', 'format-obj', 'format-obj format-fbx']
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+   
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose --no-default-features --features "${{ matrix.features }}"
+    - name: Run tests
+      run: cargo test --verbose --no-default-features --features "${{ matrix.features }}"
