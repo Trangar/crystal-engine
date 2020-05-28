@@ -21,10 +21,17 @@
 //!     fn init(state: &mut GameState) -> Self {
 //!         // Load an object. This will automatically be rendered every frame
 //!         // as long as the returned ModelHandle is not dropped.
+//!         
+//!         // Note that "new_obj_model" is only available when using the "format-obj" feature
+//!         // for more information and different model formats, see the documentation of "GameState"
+//!#        #[cfg(feature = "format-obj")]
 //!         let model = state.new_obj_model("assets/some_object.obj")
 //!             .with_position((0.0, -3.0, 0.0))
 //!             .with_scale(0.3)
 //!             .build();
+//!
+//!#        #[cfg(not(feature = "format-obj"))]
+//!#        let model: ModelHandle = unsafe { std::mem::zeroed() };
 //!
 //!         // Update the camera by manipulating the state's field
 //!         state.camera = Matrix4::look_at(
