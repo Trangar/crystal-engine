@@ -38,6 +38,14 @@ pub struct ModelGroup {
 }
 
 impl ModelGroup {
+    pub fn from_tex(texture: Option<Arc<ImmutableImage<R8G8B8A8Srgb>>>) -> Self {
+        Self {
+            material: None,
+            texture,
+            index: None,
+        }
+    }
+
     pub fn from_part(
         device: Arc<Device>,
         texture: &Option<Arc<ImmutableImage<R8G8B8A8Srgb>>>,
@@ -45,7 +53,7 @@ impl ModelGroup {
     ) -> (Self, Option<Box<dyn GpuFuture>>) {
         let index = Some(
             CpuAccessibleBuffer::from_iter(
-                device.clone(),
+                device,
                 BufferUsage::all(),
                 false,
                 part.index.iter().copied(),

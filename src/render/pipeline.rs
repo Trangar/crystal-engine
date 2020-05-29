@@ -7,6 +7,7 @@ use vulkano::{
     command_buffer::{
         AutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferExecFuture, DynamicState,
     },
+    descriptor::descriptor_set::StdDescriptorPool,
     device::{Device, Queue},
     format::{Format, R8G8B8A8Srgb},
     framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass},
@@ -25,18 +26,19 @@ pub struct RenderPipeline {
     device: Arc<Device>,
     queue: Arc<Queue>,
     dimensions: [f32; 2],
-    pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
-    dynamic_state: DynamicState,
+    pub(crate) pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
+    pub(crate) dynamic_state: DynamicState,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
-    empty_texture: Arc<ImmutableImage<R8G8B8A8Srgb>>,
-    render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
-    uniform_buffer: CpuBufferPool<model_vs::ty::Data>,
+    pub(crate) empty_texture: Arc<ImmutableImage<R8G8B8A8Srgb>>,
+    pub(crate) render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
+    pub(crate) uniform_buffer: CpuBufferPool<model_vs::ty::Data>,
     swapchain: Arc<Swapchain<winit::window::Window>>,
     swapchain_images: Vec<Arc<SwapchainImage<winit::window::Window>>>,
     swapchain_needs_refresh: bool,
-    sampler: Arc<Sampler>,
-
+    pub(crate) sampler: Arc<Sampler>,
     next_frame_futures: Vec<Box<dyn GpuFuture>>,
+
+    pub(crate) descriptor_pool: Arc<StdDescriptorPool>,
 }
 
 impl RenderPipeline {
@@ -140,6 +142,7 @@ impl RenderPipeline {
         .unwrap();
 
         let (empty_texture, fut) = generate_empty_texture(queue.clone(), [255, 0, 0, 255]);
+        let descriptor_pool = Arc::new(StdDescriptorPool::new(device.clone()));
 
         Self {
             device,
@@ -156,6 +159,7 @@ impl RenderPipeline {
             empty_texture,
             sampler,
             next_frame_futures: vec![Box::new(fut) as _],
+            descriptor_pool,
         }
     }
 
@@ -261,8 +265,6 @@ impl RenderPipeline {
         )
         .unwrap();
 
-        let layout = self.pipeline.descriptor_set_layout(0).unwrap();
-
         let proj = cgmath::perspective(
             Rad(std::f32::consts::FRAC_PI_2),
             dimensions[0] / dimensions[1],
@@ -285,14 +287,9 @@ impl RenderPipeline {
                 start_future,
                 &handle.groups,
                 handle.matrix(),
-                &self.empty_texture,
-                &mut self.uniform_buffer,
                 &mut data,
-                &layout,
-                &self.sampler,
                 command_buffer_builder,
-                &self.pipeline,
-                &self.dynamic_state,
+                self,
             );
             command_buffer_builder = result.0;
             start_future = result.1;

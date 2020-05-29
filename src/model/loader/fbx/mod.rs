@@ -11,7 +11,7 @@ pub fn load(path: impl AsRef<Path>) -> Result<Scene, Infallible> {
     load_impl(path.as_ref())
 }
 
-static SUPPORTED_VERSIONS: &'static [FbxVersion] = &[FbxVersion::V7_4];
+static SUPPORTED_VERSIONS: &[FbxVersion] = &[FbxVersion::V7_4];
 
 /// Loads FBX data.
 fn load_impl(path: &Path) -> Result<Scene, Infallible> {

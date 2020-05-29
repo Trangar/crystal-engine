@@ -93,11 +93,7 @@ impl<'a> ModelBuilder<'a> {
 
         if groups.is_empty() {
             // we always need a single group, so add a dummy group
-            groups.push(ModelGroup {
-                material: None,
-                texture: tex,
-                index: None,
-            });
+            groups.push(ModelGroup::from_tex(tex));
         }
 
         let model = Model {

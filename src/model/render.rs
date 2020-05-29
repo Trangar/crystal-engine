@@ -1,15 +1,9 @@
 use super::data::ModelDataGroup;
-use crate::render::Material;
+use crate::render::{Material, RenderPipeline};
 use cgmath::Matrix4;
 use std::{mem, sync::Arc};
-use vulkano::format::R8G8B8A8Srgb;
 use vulkano::{
-    buffer::CpuBufferPool,
-    command_buffer::{AutoCommandBufferBuilder, DynamicState},
-    descriptor::descriptor_set::{PersistentDescriptorSet, UnsafeDescriptorSetLayout},
-    image::ImmutableImage,
-    pipeline::GraphicsPipelineAbstract,
-    sampler::Sampler,
+    command_buffer::AutoCommandBufferBuilder, descriptor::descriptor_set::PersistentDescriptorSet,
     sync::GpuFuture,
 };
 
@@ -19,14 +13,10 @@ impl super::Model {
         mut future: Box<dyn GpuFuture>,
         groups: &[ModelDataGroup],
         base_matrix: Matrix4<f32>,
-        empty_texture: &Arc<ImmutableImage<R8G8B8A8Srgb>>,
-        uniform_buffer: &mut CpuBufferPool<vs::ty::Data>,
         data: &mut vs::ty::Data,
-        layout: &Arc<UnsafeDescriptorSetLayout>,
-        sampler: &Arc<Sampler>,
         mut command_buffer_builder: AutoCommandBufferBuilder,
-        pipeline: &Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
-        dynamic_state: &DynamicState,
+
+        pipeline: &mut RenderPipeline,
     ) -> (AutoCommandBufferBuilder, Box<dyn GpuFuture>) {
         if !self.texture_future.read().is_empty() {
             let texture_futures = mem::replace(&mut *self.texture_future.write(), Vec::new());
@@ -34,39 +24,35 @@ impl super::Model {
                 future = Box::new(future.join(fut)) as _;
             }
         }
+        let layout = pipeline.pipeline.descriptor_set_layout(0).unwrap();
 
         for (group, group_data) in self.groups.iter().zip(groups.iter()) {
-            let texture = group.texture.as_ref().unwrap_or(empty_texture).clone();
+            let texture = group
+                .texture
+                .as_ref()
+                .unwrap_or(&pipeline.empty_texture)
+                .clone();
 
             data.world = (base_matrix * group_data.matrix).into();
             update_uniform_material(data, group.material.as_ref());
 
-            let uniform_buffer_subbuffer = uniform_buffer.next(*data).unwrap();
+            let uniform_buffer_subbuffer = pipeline.uniform_buffer.next(*data).unwrap();
 
-            // TODO: We should probably cache the set in a pool
-            // From the documentation: "Creating a persistent descriptor set allocates from a pool,
-            // and can't be modified once created. You are therefore encouraged to create them at
-            // initialization and not the during performance-critical paths."
-            // 1. Create an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPool.html
-            // 2. Import this trait: https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/trait.DescriptorPool.html
-            // 3. Allocate an https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.StdDescriptorPoolAlloc.html and store it in modelhandle.
-            // 4. replace .build() with .build_with_pool:
-            //    https://docs.rs/vulkano/0.18.0/vulkano/descriptor/descriptor_set/struct.PersistentDescriptorSetBuilder.html#method.build_with_pool
             let set = Arc::new(
                 PersistentDescriptorSet::start(layout.clone())
                     .add_buffer(uniform_buffer_subbuffer)
                     .unwrap()
-                    .add_sampled_image(texture, sampler.clone())
+                    .add_sampled_image(texture, pipeline.sampler.clone())
                     .unwrap()
-                    .build()
+                    .build_with_pool(&mut pipeline.descriptor_pool)
                     .unwrap(),
             );
 
             command_buffer_builder = if let Some(index) = group.index.as_ref() {
                 command_buffer_builder
                     .draw_indexed(
-                        pipeline.clone(),
-                        dynamic_state,
+                        pipeline.pipeline.clone(),
+                        &pipeline.dynamic_state,
                         vec![self.vertex_buffer.clone()],
                         index.clone(),
                         set.clone(),
@@ -76,8 +62,8 @@ impl super::Model {
             } else {
                 command_buffer_builder
                     .draw(
-                        pipeline.clone(),
-                        dynamic_state,
+                        pipeline.pipeline.clone(),
+                        &pipeline.dynamic_state,
                         vec![self.vertex_buffer.clone()],
                         set,
                         (),
