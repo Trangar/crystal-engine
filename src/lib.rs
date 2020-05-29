@@ -4,7 +4,7 @@
 //!
 //! ```no_run
 //! use cgmath::{Matrix4, Point3, Rad, Vector3};
-//! use crystal_engine::{GameState, ModelHandle, Window, VirtualKeyCode};
+//! use crystal_engine::{GameState, ModelHandle, Window, event::VirtualKeyCode};
 //!
 //! fn main() {
 //!     // Create a new instance of your game and run it
@@ -21,13 +21,17 @@
 //!     fn init(state: &mut GameState) -> Self {
 //!         // Load an object. This will automatically be rendered every frame
 //!         // as long as the returned ModelHandle is not dropped.
-//!         let model = state.create_model_from_obj("assets/some_object.obj");
+//!         
+//!         // Note that "new_obj_model" is only available when using the "format-obj" feature
+//!         // for more information and different model formats, see the documentation of "GameState"
+//!#        #[cfg(feature = "format-obj")]
+//!         let model = state.new_obj_model("assets/some_object.obj")
+//!             .with_position((0.0, -3.0, 0.0))
+//!             .with_scale(0.3)
+//!             .build();
 //!
-//!         // You can move the model around by calling `.modify`
-//!         model.modify(|data| {
-//!             data.position.y = -3.0;
-//!             data.scale = 0.3;
-//!         });
+//!#        #[cfg(not(feature = "format-obj"))]
+//!#        let model: ModelHandle = unsafe { std::mem::zeroed() };
 //!
 //!         // Update the camera by manipulating the state's field
 //!         state.camera = Matrix4::look_at(
@@ -60,22 +64,30 @@
 //! }
 //! ```
 
-#![warn(missing_docs, clippy::broken_links)]
+#![warn(missing_docs)]
 
 mod game_state;
+mod model;
 mod render;
 
 pub use self::{
     game_state::GameState,
-    render::{ModelData, ModelHandle, Window},
+    model::{ModelData, ModelHandle},
+    render::{DirectionalLight, LightColor, PointLight, PointLightAttenuation, Window},
 };
 
 /// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.
 pub mod state {
-    pub use crate::game_state::KeyboardState;
+    pub use crate::{
+        game_state::KeyboardState,
+        render::{FixedVec, LightState},
+    };
 }
 
-pub use winit::event::{VirtualKeyCode, WindowEvent};
+/// Re-exported module of `winit`, with some additional structs that are useful
+pub mod event {
+    pub use winit::{dpi::PhysicalPosition, event::*};
+}
 
 /// The entry point of the game implementation.
 ///
@@ -90,15 +102,15 @@ pub trait Game {
         true
     }
     /// Triggered when a winit event is received.
-    fn event(&mut self, _state: &mut GameState, _event: &WindowEvent) {}
+    fn event(&mut self, _state: &mut GameState, _event: &event::WindowEvent) {}
     /// Triggered when a key is pressed.
     ///
     /// Note that the [GameState.keyboard](struct.GameState.html#structfield.keyboard) is updated *before* this method is called.
     /// This means that `state.keyboard.is_pressed(key)` will always return `true`.
-    fn keydown(&mut self, _state: &mut GameState, _key: VirtualKeyCode) {}
+    fn keydown(&mut self, _state: &mut GameState, _key: event::VirtualKeyCode) {}
     /// Triggered when a key is released.
     ///
     /// Note that the [GameState.keyboard](struct.GameState.html#structfield.keyboard) is updated *before* this method is called.
     /// This means that `state.keyboard.is_pressed(key)` will always return `false`.
-    fn keyup(&mut self, _state: &mut GameState, _key: VirtualKeyCode) {}
+    fn keyup(&mut self, _state: &mut GameState, _key: event::VirtualKeyCode) {}
 }

@@ -1,5 +1,5 @@
-use super::{model_handle::ModelHandleMessage, RenderPipeline};
-use crate::{Game, GameState};
+use super::RenderPipeline;
+use crate::{model::ModelHandleMessage, Game, GameState};
 use std::sync::mpsc::{channel, Receiver};
 use vulkano::{
     device::{Device, DeviceExtensions, Features},
@@ -15,7 +15,7 @@ use winit::{
 /// A handle to the window and the game state. This will be your main entrypoint of the game.
 pub struct Window<GAME: Game + 'static> {
     dimensions: [f32; 2],
-    pipeline: Option<RenderPipeline>,
+    pipeline: RenderPipeline,
     events_loop: Option<EventLoop<()>>,
     game_state: GameState,
     model_handle_receiver: Receiver<ModelHandleMessage>,
@@ -69,18 +69,23 @@ impl<GAME: Game + 'static> Window<GAME> {
             .build_vk_surface(&events_loop, instance.clone())
             .unwrap();
 
-        let pipeline =
-            RenderPipeline::create(device.clone(), queue, surface, physical, [width, height]);
+        let pipeline = RenderPipeline::create(
+            device.clone(),
+            queue.clone(),
+            surface.clone(),
+            physical,
+            [width, height],
+        );
 
         let (sender, receiver) = channel();
 
-        let mut game_state = GameState::new(device, sender);
+        let mut game_state = GameState::new(device, queue, sender, surface);
 
         let game = GAME::init(&mut game_state);
 
         Window {
             dimensions: [width, height],
-            pipeline: Some(pipeline),
+            pipeline,
             events_loop: Some(events_loop),
             model_handle_receiver: receiver,
             game_state,
@@ -90,7 +95,7 @@ impl<GAME: Game + 'static> Window<GAME> {
 
     pub(crate) fn update_size(&mut self, width: f32, height: f32) {
         self.dimensions = [width, height];
-        self.pipeline.as_mut().unwrap().resize(self.dimensions);
+        self.pipeline.resize(self.dimensions);
     }
 
     fn update(&mut self) {
@@ -107,27 +112,14 @@ impl<GAME: Game + 'static> Window<GAME> {
     }
 
     fn render_and_update(&mut self) {
-        let mut pipeline = self.pipeline.take().unwrap();
-        let dimensions = self.dimensions;
-        let handles: Vec<_> = self
-            .game_state
-            .model_handles
-            .values()
-            .map(|handle| {
-                let handle = handle.read();
-                (handle.model.clone(), handle.matrix())
-            })
-            .collect();
-
-        pipeline.render(
+        let future = self.pipeline.render(
             self.game_state.camera,
-            dimensions,
-            handles.into_iter(),
-            || {
-                self.update();
-            },
+            self.dimensions,
+            self.game_state.model_handles.values(),
+            self.game_state.light.directional.to_shader_value(),
         );
-        self.pipeline = Some(pipeline);
+        self.update();
+        self.pipeline.finish_render(future);
     }
 
     /// Take control of the main loop and run the game. Periodically [Game::update] will be called, allowing you to modify the game world.
