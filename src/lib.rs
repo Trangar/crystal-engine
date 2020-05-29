@@ -65,12 +65,10 @@
 //! ```
 
 #![warn(missing_docs)]
-#![allow(dead_code)] // Remove this once the engine is stabilizing
 
 mod game_state;
 mod model;
 mod render;
-mod util;
 
 pub use self::{
     game_state::GameState,
