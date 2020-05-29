@@ -37,9 +37,21 @@ impl std::ops::Add for Rad {
         Rad(self.0 + other.0)
     }
 }
+impl std::ops::Sub for Rad {
+    type Output = Rad;
+    fn sub(self, other: Rad) -> Rad {
+        Rad(self.0 - other.0)
+    }
+}
 
 impl std::ops::AddAssign for Rad {
     fn add_assign(&mut self, other: Rad) {
         *self = Rad(self.0 + other.0)
+    }
+}
+
+impl std::ops::SubAssign for Rad {
+    fn sub_assign(&mut self, other: Rad) {
+        *self = Rad(self.0 - other.0)
     }
 }

@@ -3,8 +3,10 @@
 //! # Example
 //!
 //! ```no_run
-//! use cgmath::{Matrix4, Point3, Rad, Vector3};
-//! use crystal_engine::{GameState, ModelHandle, Window, event::VirtualKeyCode};
+//! use crystal_engine::{
+//!     GameState, ModelHandle, Window, event::VirtualKeyCode,
+//!     math::{Matrix4, Rad, Vector3}
+//! };
 //!
 //! fn main() {
 //!     // Create a new instance of your game and run it
@@ -35,8 +37,8 @@
 //!
 //!         // Update the camera by manipulating the state's field
 //!         state.camera = Matrix4::look_at(
-//!             Point3::new(0.3, 0.3, 1.0),
-//!             Point3::new(0.0, 0.0, 0.0),
+//!             Vector3::new(0.3, 0.3, 1.0),
+//!             Vector3::new(0.0, 0.0, 0.0),
 //!             Vector3::new(0.0, -1.0, 0.0),
 //!         );
 //!
