@@ -1,7 +1,4 @@
-use crate::{
-    math::{prelude::*, Vector3},
-    model::vs as model_vs,
-};
+use crate::{math::Vector3, model::vs as model_vs};
 
 /// A direction lightsource in the world.
 ///

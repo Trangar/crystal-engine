@@ -1,5 +1,5 @@
 use super::Model;
-use crate::math::{prelude::*, rad, Euler, Matrix4, Vector3};
+use crate::math::{Euler, Matrix4, Vector3};
 use parking_lot::RwLock;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
@@ -51,7 +51,7 @@ impl ModelData {
                 id,
                 model,
                 position: Vector3::zero(),
-                rotation: Euler::new(rad(0.0), rad(0.0), rad(0.0)),
+                rotation: Euler::zero(),
                 scale: 1.0,
                 groups,
             })),

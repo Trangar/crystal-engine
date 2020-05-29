@@ -88,7 +88,6 @@ impl<'a> Loader<'a> {
                     .control_point(cpi)
                     .map(|p| Vector3::new(p.x as f32, p.y as f32, p.z as f32))
             })
-            .filter_map(|p| p.cast())
             .collect::<Vec<_>>();
 
         let layer = mesh_obj.layers().next().expect("Mesh has no layers");
@@ -111,7 +110,6 @@ impl<'a> Loader<'a> {
                         .map(|v| Vector3::new(v.x as f32, v.y as f32, v.z as f32))
                         .ok()
                 })
-                .filter_map(|v| v.cast())
                 .collect::<Vec<_>>()
         };
         let uv = {

@@ -1,6 +1,6 @@
 //! Triangulator.
 
-use crate::math::{prelude::*, Vector2, Vector3};
+use crate::math::{Vector2, Vector3};
 use anyhow::{anyhow, bail};
 use fbxcel_dom::v7400::data::mesh::{PolygonVertexIndex, PolygonVertices};
 
@@ -72,18 +72,9 @@ pub fn triangulator(
                     bounding_box(&points).expect("Should never happen: there are 5 or more points");
                 let width = max - min;
                 match smallest_direction(&width) {
-                    Axis::X => points
-                        .into_iter()
-                        .map(|v| Vector2::new(v[1], v[2]))
-                        .collect(),
-                    Axis::Y => points
-                        .into_iter()
-                        .map(|v| Vector2::new(v[0], v[2]))
-                        .collect(),
-                    Axis::Z => points
-                        .into_iter()
-                        .map(|v| Vector2::new(v[0], v[1]))
-                        .collect(),
+                    Axis::X => points.into_iter().map(|v| Vector2::new(v.y, v.z)).collect(),
+                    Axis::Y => points.into_iter().map(|v| Vector2::new(v.x, v.z)).collect(),
+                    Axis::Z => points.into_iter().map(|v| Vector2::new(v.x, v.y)).collect(),
                 }
             };
             // Normal directions.
@@ -98,8 +89,8 @@ pub fn triangulator(
                     .zip(iter_prev)
                     .zip(iter_next)
                     .map(|((cur, prev), next)| {
-                        let prev_cur = prev - cur;
-                        let cur_next = cur - next;
+                        let prev_cur = *prev - *cur;
+                        let cur_next = *cur - *next;
                         prev_cur.perp_dot(cur_next) > 0.0
                     })
                     .collect::<Vec<_>>()
@@ -146,20 +137,7 @@ fn bounding_box<'a>(points: impl IntoIterator<Item = &'a Vector3>) -> Option<(Ve
     points.into_iter().fold(None, |minmax, point| {
         minmax.map_or_else(
             || Some((*point, *point)),
-            |(min, max)| {
-                Some((
-                    Vector3 {
-                        x: min.x.min(point.x),
-                        y: min.y.min(point.y),
-                        z: min.z.min(point.z),
-                    },
-                    Vector3 {
-                        x: max.x.max(point.x),
-                        y: max.y.max(point.y),
-                        z: max.z.max(point.z),
-                    },
-                ))
-            },
+            |(min, max)| Some((min.memberwise_min(*point), max.memberwise_max(*point))),
         )
     })
 }

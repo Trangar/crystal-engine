@@ -67,7 +67,7 @@
 #![warn(missing_docs)]
 
 mod game_state;
-mod math;
+pub mod math;
 mod model;
 mod render;
 

@@ -1,6 +1,6 @@
 use super::{loader::SourceOrShape, Model, ModelGroup, ModelHandle};
 use crate::{
-    math::{prelude::*, rad, Euler, Vector3},
+    math::{Euler, Vector3},
     GameState,
 };
 use parking_lot::RwLock;
@@ -32,7 +32,7 @@ impl<'a> ModelBuilder<'a> {
             fallback_color: None,
             texture: None,
             position: Vector3::zero(),
-            rotation: Euler::new(rad(0.0), rad(0.0), rad(0.0)),
+            rotation: Euler::zero(),
             scale: 1.0,
         }
     }

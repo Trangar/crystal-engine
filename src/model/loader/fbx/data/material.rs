@@ -34,10 +34,14 @@ pub struct LambertData {
 impl Into<crate::render::Material> for Material {
     fn into(self) -> crate::render::Material {
         match self.data {
-            ShadingData::Lambert(lambert) => crate::render::Material {
-                ambient: lambert.ambient.into(),
-                diffuse: lambert.diffuse.into(),
-                specular: lambert.emissive.into(),
+            ShadingData::Lambert(LambertData {
+                ambient,
+                diffuse,
+                emissive,
+            }) => crate::render::Material {
+                ambient,
+                diffuse,
+                specular: emissive,
                 shininess: 0.0,
             },
         }

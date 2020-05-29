@@ -1,5 +1,5 @@
 use crate::{
-    math::{prelude::*, rad, Matrix4},
+    math::{Matrix4, Rad},
     model::{fs as model_fs, vs as model_vs, ModelData},
 };
 use parking_lot::RwLock;
@@ -268,7 +268,7 @@ impl RenderPipeline {
         .unwrap();
 
         let proj = crate::math::perspective(
-            rad(std::f32::consts::FRAC_PI_2),
+            Rad(std::f32::consts::FRAC_PI_2),
             dimensions[0] / dimensions[1],
             0.01,
             100.0,
@@ -342,7 +342,7 @@ fn default_uniform(
     proj: Matrix4,
     directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
 ) -> model_vs::ty::Data {
-    let camera_pos = -camera.z.truncate();
+    let camera_pos = -camera.position();
 
     model_vs::ty::Data {
         world: Matrix4::zero().into(),
