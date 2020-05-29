@@ -3,62 +3,77 @@ This is a prototype game engine, focussed on abstracting away all rendering logi
 # Example
 
 ```rust
-use cgmath::{Matrix4, Point3, Rad, Vector3};
-use crystal_engine::{GameState, ModelHandle, Window, VirtualKeyCode};
+use cgmath::{Deg, Euler, Matrix4, Point3, Rad, Vector3};
+use crystal_engine::{
+    event::VirtualKeyCode, DirectionalLight, GameState, LightColor, ModelHandle, Window,
+};
 
 fn main() {
-    // Create a new instance of your game and run it
     let window = Window::<Game>::new(800., 600.);
     window.run();
 }
 
 pub struct Game {
-    // Your game state is stored here
-    model: ModelHandle,
+    rust_logo: ModelHandle,
+    fbx_model: ModelHandle,
+    obj_model: ModelHandle,
 }
 
 impl crystal_engine::Game for Game {
     fn init(state: &mut GameState) -> Self {
-        // Load an object. This will automatically be rendered every frame
-        // as long as the returned ModelHandle is not dropped.
-        let model = state.create_model_from_obj("assets/some_object.obj");
+        state.window().set_title("crystal-engine demo");
 
-        // You can move the model around by calling `.modify`
-        model.modify(|data| {
-            data.position.y = -3.0;
-            data.scale = 0.3;
-        });
+        let rust_logo = state
+            .new_rectangle_model()
+            .with_texture_from_file("assets/rust_logo.png")
+            .with_position((0.0, 1.5, 0.0))
+            .with_rotation(Euler::new(Rad(0.0), Deg(180.0).into(), Rad(0.0)))
+            .with_scale(1.0)
+            .build();
 
-        // Update the camera by manipulating the state's field
+        let fbx_model = state
+            .new_fbx_model("assets/some_model.fbx")
+            .build();
+
+        let obj_model = state
+            .new_obj_model("assets/some_model.obj")
+            .build();
+
         state.camera = Matrix4::look_at(
-            Point3::new(0.3, 0.3, 1.0),
+            Point3::new(0.0, 0.0, 2.0),
             Point3::new(0.0, 0.0, 0.0),
-            Vector3::new(0.0, -1.0, 0.0),
+            Vector3::new(0.0, 1.0, 0.0),
         );
 
-        Self { model }
-    }
+        state.light.directional.push(DirectionalLight {
+            direction: Vector3::new(1.0, -1.0, 0.0),
+            color: LightColor {
+                ambient: Vector3::new(1.0, 1.0, 1.0),
+                diffuse: Vector3::new(1.0, 1.0, 1.0),
+                specular: Vector3::new(1.0, 1.0, 1.0),
+            },
+        });
 
+        Self {
+            rust_logo,
+            fbx_model,
+            obj_model,
+        }
+    }
     fn keydown(&mut self, state: &mut GameState, key: VirtualKeyCode) {
-        // Exit the game when the user hits escape
         if key == VirtualKeyCode::Escape {
             state.terminate_game();
         }
     }
 
-    fn update(&mut self, state: &mut GameState) {
-        self.model.modify(|data| {
-            // Rotate either left or right, based on what the user has pressed
-            if state.keyboard.is_pressed(VirtualKeyCode::A) {
-                data.rotation.y -= Rad(0.05);
-            }
-            if state.keyboard.is_pressed(VirtualKeyCode::D) {
-                data.rotation.y += Rad(0.05);
-            }
+    fn update(&mut self, _state: &mut GameState) {
+        self.rust_logo.modify(|data| {
+            data.rotation.y += Rad(0.02);
         });
     }
 }
 ```
+
 
 # Features
 Currently the following features are available:
