@@ -140,17 +140,17 @@ fn load_texture(
     Arc<ImmutableImage<R8G8B8A8Srgb>>,
     CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
 ) {
-    use std::fs::File;
-    let file = File::open(path).unwrap();
-    let decoder = png::Decoder::new(file);
-    let (info, mut reader) = decoder.read_info().unwrap();
+    let image = image::open(path).unwrap().to_rgba();
     let dimensions = Dimensions::Dim2d {
-        width: info.width,
-        height: info.height,
+        width: image.width(),
+        height: image.height(),
     };
-    let mut image_data = Vec::new();
-    image_data.resize((info.width * info.height * 4) as usize, 0);
-    reader.next_frame(&mut image_data).unwrap();
 
-    ImmutableImage::from_iter(image_data.iter().cloned(), dimensions, R8G8B8A8Srgb, queue).unwrap()
+    ImmutableImage::from_iter(
+        image.into_raw().into_iter(),
+        dimensions,
+        R8G8B8A8Srgb,
+        queue,
+    )
+    .unwrap()
 }

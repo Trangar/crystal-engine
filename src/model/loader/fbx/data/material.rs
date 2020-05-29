@@ -1,7 +1,5 @@
 //! Material.
 
-use rgb::RGB;
-
 use crate::model::loader::fbx::data::TextureIndex;
 
 /// Material.
@@ -26,11 +24,11 @@ pub enum ShadingData {
 #[derive(Debug, Clone, Copy)]
 pub struct LambertData {
     /// Ambient.
-    pub ambient: RGB<f32>,
+    pub ambient: [f32; 3],
     /// Diffuse.
-    pub diffuse: RGB<f32>,
+    pub diffuse: [f32; 3],
     /// Emissive.
-    pub emissive: RGB<f32>,
+    pub emissive: [f32; 3],
 }
 
 impl Into<crate::render::Material> for Material {

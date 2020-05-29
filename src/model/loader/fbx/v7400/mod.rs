@@ -14,7 +14,6 @@ use fbxcel_dom::v7400::{
     object::{self, model::TypedModelHandle, ObjectId, TypedObjectHandle},
     Document,
 };
-use rgb::ComponentMap;
 use std::{collections::HashMap, convert::Infallible, path::Path};
 
 mod triangulator;
@@ -194,17 +193,17 @@ impl<'a> Loader<'a> {
             Ok(ShadingModel::Lambert) | Ok(ShadingModel::Phong) => {
                 let ambient_color = properties.ambient_color_or_default().unwrap_or_default();
                 let ambient_factor = properties.ambient_factor_or_default().unwrap_or_default();
-                let ambient = (ambient_color * ambient_factor).map(|f| f as f32);
+                let ambient = ambient_color * ambient_factor;
                 let diffuse_color = properties.diffuse_color_or_default().unwrap_or_default();
                 let diffuse_factor = properties.diffuse_factor_or_default().unwrap_or_default();
-                let diffuse = (diffuse_color * diffuse_factor).map(|f| f as f32);
+                let diffuse = diffuse_color * diffuse_factor;
                 let emissive_color = properties.emissive_color_or_default().unwrap_or_default();
                 let emissive_factor = properties.emissive_factor_or_default().unwrap_or_default();
-                let emissive = (emissive_color * emissive_factor).map(|f| f as f32);
+                let emissive = emissive_color * emissive_factor;
                 ShadingData::Lambert(LambertData {
-                    ambient,
-                    diffuse,
-                    emissive,
+                    ambient: [ambient.r as f32, ambient.g as f32, ambient.b as f32],
+                    diffuse: [diffuse.r as f32, diffuse.g as f32, diffuse.b as f32],
+                    emissive: [emissive.r as f32, emissive.g as f32, emissive.b as f32],
                 })
             }
             v => panic!("Unknown shading model: {:?}", v),
