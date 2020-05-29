@@ -1,6 +1,8 @@
 use super::{loader::SourceOrShape, Model, ModelGroup, ModelHandle};
-use crate::GameState;
-use cgmath::{Euler, Rad, Vector3, Zero};
+use crate::{
+    math::{prelude::*, rad, Euler, Vector3},
+    GameState,
+};
 use parking_lot::RwLock;
 use std::sync::Arc;
 use vulkano::{
@@ -15,10 +17,10 @@ use vulkano::{
 pub struct ModelBuilder<'a> {
     game_state: &'a mut GameState,
     source_or_shape: SourceOrShape<'a>,
-    fallback_color: Option<Vector3<f32>>,
+    fallback_color: Option<Vector3>,
     texture: Option<&'a str>,
-    position: Vector3<f32>,
-    rotation: Euler<Rad<f32>>,
+    position: Vector3,
+    rotation: Euler,
     scale: f32,
 }
 
@@ -30,12 +32,12 @@ impl<'a> ModelBuilder<'a> {
             fallback_color: None,
             texture: None,
             position: Vector3::zero(),
-            rotation: Euler::new(Rad(0.0), Rad(0.0), Rad(0.0)),
+            rotation: Euler::new(rad(0.0), rad(0.0), rad(0.0)),
             scale: 1.0,
         }
     }
 
-    pub fn with_fallback_color(mut self, color: impl Into<Vector3<f32>>) -> Self {
+    pub fn with_fallback_color(mut self, color: impl Into<Vector3>) -> Self {
         self.fallback_color = Some(color.into());
         self
     }
@@ -43,11 +45,11 @@ impl<'a> ModelBuilder<'a> {
         self.texture = Some(texture_src);
         self
     }
-    pub fn with_position(mut self, position: impl Into<Vector3<f32>>) -> Self {
+    pub fn with_position(mut self, position: impl Into<Vector3>) -> Self {
         self.position = position.into();
         self
     }
-    pub fn with_rotation(mut self, rotation: Euler<Rad<f32>>) -> Self {
+    pub fn with_rotation(mut self, rotation: Euler) -> Self {
         self.rotation = rotation;
         self
     }

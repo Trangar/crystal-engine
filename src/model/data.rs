@@ -1,5 +1,5 @@
 use super::Model;
-use cgmath::{Euler, Matrix4, Rad, SquareMatrix, Vector3, Zero};
+use crate::math::{prelude::*, rad, Euler, Matrix4, Vector3};
 use parking_lot::RwLock;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
@@ -14,10 +14,10 @@ pub struct ModelData {
     pub(crate) model: Arc<Model>,
 
     /// The current position in the world that this model exists at.
-    pub position: Vector3<f32>,
+    pub position: Vector3,
 
     /// The rotation of this model, in euler angles.
-    pub rotation: Euler<Rad<f32>>,
+    pub rotation: Euler,
 
     /// The scale of this model.
     pub scale: f32,
@@ -51,13 +51,13 @@ impl ModelData {
                 id,
                 model,
                 position: Vector3::zero(),
-                rotation: Euler::new(Rad(0.0), Rad(0.0), Rad(0.0)),
+                rotation: Euler::new(rad(0.0), rad(0.0), rad(0.0)),
                 scale: 1.0,
                 groups,
             })),
         )
     }
-    pub(crate) fn matrix(&self) -> Matrix4<f32> {
+    pub(crate) fn matrix(&self) -> Matrix4 {
         Matrix4::from_translation(self.position)
             * Matrix4::from(self.rotation)
             * Matrix4::from_scale(self.scale)
@@ -65,7 +65,7 @@ impl ModelData {
 }
 
 pub struct ModelDataGroup {
-    pub matrix: Matrix4<f32>,
+    pub matrix: Matrix4,
 }
 
 impl Default for ModelDataGroup {

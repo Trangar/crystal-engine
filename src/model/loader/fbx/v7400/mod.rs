@@ -5,7 +5,7 @@ use super::data::{
     GeometryMesh, GeometryMeshIndex, LambertData, Material, MaterialIndex, Mesh, MeshIndex, Scene,
     ShadingData, Texture, TextureIndex, WrapMode,
 };
-use cgmath::{Point2, Point3, Vector3};
+use crate::math::{Vector2, Vector3};
 use fbxcel_dom::v7400::{
     data::{
         material::ShadingModel, mesh::layer::TypedLayerElementHandle,
@@ -83,7 +83,11 @@ impl<'a> Loader<'a> {
         let positions = triangle_pvi_indices
             .iter_control_point_indices()
             .filter_map(|cpi| cpi)
-            .filter_map(|cpi| polygon_vertices.control_point(cpi).map(Point3::from))
+            .filter_map(|cpi| {
+                polygon_vertices
+                    .control_point(cpi)
+                    .map(|p| Vector3::new(p.x as f32, p.y as f32, p.z as f32))
+            })
             .filter_map(|p| p.cast())
             .collect::<Vec<_>>();
 
@@ -104,7 +108,7 @@ impl<'a> Loader<'a> {
                 .filter_map(|tri_vi| {
                     normals
                         .normal(&triangle_pvi_indices, tri_vi)
-                        .map(Vector3::from)
+                        .map(|v| Vector3::new(v.x as f32, v.y as f32, v.z as f32))
                         .ok()
                 })
                 .filter_map(|v| v.cast())
@@ -123,7 +127,7 @@ impl<'a> Loader<'a> {
             triangle_pvi_indices
                 .triangle_vertex_indices()
                 .filter_map(|tri_vi| uv.uv(&triangle_pvi_indices, tri_vi).ok())
-                .filter_map(|p| Point2::from(p).cast())
+                .map(|p| Vector2::new(p.x as f32, p.y as f32))
                 .collect::<Vec<_>>()
         };
 

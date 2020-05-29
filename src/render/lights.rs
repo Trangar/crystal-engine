@@ -1,5 +1,7 @@
-use crate::model::vs as model_vs;
-use cgmath::{Vector3, Zero};
+use crate::{
+    math::{prelude::*, Vector3},
+    model::vs as model_vs,
+};
 
 /// A direction lightsource in the world.
 ///
@@ -9,7 +11,7 @@ use cgmath::{Vector3, Zero};
 /// For more information, see the amazing tutorial at [https://learnopengl.com/Lighting/Colors](https://learnopengl.com/Lighting/Colors)
 pub struct DirectionalLight {
     /// The direction of the light source
-    pub direction: Vector3<f32>,
+    pub direction: Vector3,
     /// The color of the light source.
     pub color: LightColor,
 }
@@ -30,7 +32,7 @@ impl Default for DirectionalLight {
 /// For more information, see the amazing tutorial at [https://learnopengl.com/Lighting/Colors](https://learnopengl.com/Lighting/Colors)
 pub struct PointLight {
     /// The position of the light in the world.
-    pub position: Vector3<f32>,
+    pub position: Vector3,
     /// The color of the light in the world.
     pub color: LightColor,
 
@@ -58,20 +60,20 @@ pub struct LightColor {
     /// To simulate this we use an ambient lighting constant that always gives the object some color.
     ///
     /// This will be merged with the ambient factor of the material of your model.
-    pub ambient: Vector3<f32>,
+    pub ambient: Vector3,
 
     /// Diffuse light simulates the directional impact a light object has on an object.
     /// This is the most visually significant component of the lighting model.
     /// The more a part of an object faces the light source, the brighter it becomes.
     ///
     /// This will be merged with the diffuse factor of the material of your model.
-    pub diffuse: Vector3<f32>,
+    pub diffuse: Vector3,
 
     /// Specular light simulates the bright spot of a light that appears on shiny objects.
     /// Specular highlights are more inclined to the color of the light than the color of the object.
     ///
     /// This will be merged with the specular factor of the material of your model.
-    pub specular: Vector3<f32>,
+    pub specular: Vector3,
 }
 
 impl Default for LightColor {

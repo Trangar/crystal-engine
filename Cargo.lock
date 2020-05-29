@@ -341,7 +341,7 @@ dependencies = [
 
 [[package]]
 name = "crystal-engine"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "array-init",
@@ -349,6 +349,7 @@ dependencies = [
  "fbxcel-dom",
  "genmesh",
  "image",
+ "mint",
  "obj",
  "parking_lot",
  "vulkano",

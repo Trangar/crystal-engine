@@ -1,5 +1,7 @@
-use crate::model::{fs as model_fs, vs as model_vs, ModelData};
-use cgmath::{Matrix4, Rad, Zero};
+use crate::{
+    math::{prelude::*, rad, Matrix4},
+    model::{fs as model_fs, vs as model_vs, ModelData},
+};
 use parking_lot::RwLock;
 use std::{mem, sync::Arc};
 use vulkano::{
@@ -244,7 +246,7 @@ impl RenderPipeline {
 
     pub fn render<'a>(
         &mut self,
-        camera: Matrix4<f32>,
+        camera: Matrix4,
         dimensions: [f32; 2],
         models: impl Iterator<Item = &'a Arc<RwLock<ModelData>>>,
         directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
@@ -265,8 +267,8 @@ impl RenderPipeline {
         )
         .unwrap();
 
-        let proj = cgmath::perspective(
-            Rad(std::f32::consts::FRAC_PI_2),
+        let proj = crate::math::perspective(
+            rad(std::f32::consts::FRAC_PI_2),
             dimensions[0] / dimensions[1],
             0.01,
             100.0,
@@ -336,8 +338,8 @@ impl RenderPipeline {
 }
 
 fn default_uniform(
-    camera: Matrix4<f32>,
-    proj: Matrix4<f32>,
+    camera: Matrix4,
+    proj: Matrix4,
     directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
 ) -> model_vs::ty::Data {
     let camera_pos = -camera.z.truncate();

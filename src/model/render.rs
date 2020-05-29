@@ -1,6 +1,8 @@
 use super::data::ModelDataGroup;
-use crate::render::{Material, RenderPipeline};
-use cgmath::Matrix4;
+use crate::{
+    math::Matrix4,
+    render::{Material, RenderPipeline},
+};
 use std::{mem, sync::Arc};
 use vulkano::{
     command_buffer::AutoCommandBufferBuilder, descriptor::descriptor_set::PersistentDescriptorSet,
@@ -12,7 +14,7 @@ impl super::Model {
         &self,
         mut future: Box<dyn GpuFuture>,
         groups: &[ModelDataGroup],
-        base_matrix: Matrix4<f32>,
+        base_matrix: Matrix4,
         data: &mut vs::ty::Data,
         mut command_buffer_builder: AutoCommandBufferBuilder,
 

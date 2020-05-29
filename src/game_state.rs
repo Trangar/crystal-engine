@@ -1,8 +1,8 @@
 use crate::{
+    math::{prelude::*, Matrix4},
     model::{ModelBuilder, ModelData, ModelHandleMessage, SourceOrShape},
     render::LightState,
 };
-use cgmath::{Matrix4, SquareMatrix};
 use parking_lot::RwLock;
 use std::{
     collections::{HashMap, HashSet},
@@ -25,7 +25,7 @@ pub struct GameState {
     /// The matrix of the camera currently in use.
     ///
     /// It is currently not possible to change the near and far boundaries of the camera. This might be added in a later version.
-    pub camera: Matrix4<f32>,
+    pub camera: Matrix4,
     /// Get the current keyboard state.
     pub keyboard: KeyboardState,
     /// The state of the lights currently in the world.

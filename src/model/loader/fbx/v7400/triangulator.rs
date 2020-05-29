@@ -1,9 +1,7 @@
 //! Triangulator.
 
-use std::f64;
-
+use crate::math::{prelude::*, Vector2, Vector3};
 use anyhow::{anyhow, bail};
-use cgmath::{InnerSpace, Point3, Vector2, Vector3};
 use fbxcel_dom::v7400::data::mesh::{PolygonVertexIndex, PolygonVertices};
 
 /// Triangulator.
@@ -137,27 +135,25 @@ pub fn triangulator(
 }
 
 /// Returns the vector.
-fn get_vec(pvs: &PolygonVertices<'_>, pvi: PolygonVertexIndex) -> anyhow::Result<Point3<f64>> {
+fn get_vec(pvs: &PolygonVertices<'_>, pvi: PolygonVertexIndex) -> anyhow::Result<Vector3> {
     pvs.control_point(pvi)
-        .map(Into::into)
+        .map(|p| Vector3::new(p.x as f32, p.y as f32, p.z as f32))
         .ok_or_else(|| anyhow!("Index out of range: {:?}", pvi))
 }
 
 /// Returns bounding box as `(min, max)`.
-fn bounding_box<'a>(
-    points: impl IntoIterator<Item = &'a Point3<f64>>,
-) -> Option<(Point3<f64>, Point3<f64>)> {
+fn bounding_box<'a>(points: impl IntoIterator<Item = &'a Vector3>) -> Option<(Vector3, Vector3)> {
     points.into_iter().fold(None, |minmax, point| {
         minmax.map_or_else(
             || Some((*point, *point)),
             |(min, max)| {
                 Some((
-                    Point3 {
+                    Vector3 {
                         x: min.x.min(point.x),
                         y: min.y.min(point.y),
                         z: min.z.min(point.z),
                     },
-                    Point3 {
+                    Vector3 {
                         x: max.x.max(point.x),
                         y: max.y.max(point.y),
                         z: max.z.max(point.z),
@@ -180,7 +176,7 @@ enum Axis {
 }
 
 /// Returns smallest direction.
-fn smallest_direction(v: &Vector3<f64>) -> Axis {
+fn smallest_direction(v: &Vector3) -> Axis {
     if v.x < v.y {
         if v.z < v.x {
             Axis::Z

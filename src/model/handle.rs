@@ -1,5 +1,5 @@
 use super::{Model, ModelData};
-use cgmath::{Euler, Rad, Vector3};
+use crate::math::{Euler, Vector3};
 use parking_lot::RwLock;
 use std::sync::{mpsc::Sender, Arc};
 
@@ -35,12 +35,12 @@ impl ModelHandle {
     // - rotate_by
 
     /// Get the current position of the handle. This is short for `self.read(|d| d.position)`
-    pub fn position(&self) -> Vector3<f32> {
+    pub fn position(&self) -> Vector3 {
         self.read(|d| d.position)
     }
 
     /// Get the current rotation of the handle. This is short for `self.read(|d| d.rotation)`
-    pub fn rotation(&self) -> Euler<Rad<f32>> {
+    pub fn rotation(&self) -> Euler {
         self.read(|d| d.rotation)
     }
 
