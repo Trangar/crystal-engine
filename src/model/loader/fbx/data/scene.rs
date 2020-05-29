@@ -1,8 +1,11 @@
 //! Scene.
 
-use crate::model::loader::{
-    fbx::data::{GeometryMesh, Material, Mesh, Texture},
-    ParsedModel,
+use crate::{
+    model::loader::{
+        fbx::data::{GeometryMesh, Material, Mesh, Texture},
+        ParsedModel, ParsedModelPart, ParsedTexture,
+    },
+    render::Vertex,
 };
 
 /// Scene.
@@ -154,24 +157,42 @@ define_index_type! {
 
 impl Into<ParsedModel> for Scene {
     fn into(self) -> ParsedModel {
-        /*
-        /// Scene name.
-        name: Option<String>,
-        /// Geometry mesh.
-        geometry_meshes: Vec<GeometryMesh>,
-        /// Materials.
-        materials: Vec<Material>,
-        /// Meshes.
-        meshes: Vec<Mesh>,
-        /// Textures.
-        textures: Vec<Texture>,
-            */
-        println!("Loading scene {:?}", self.name);
-        println!("{} geometry meshesh", self.geometry_meshes.len());
-        println!("{} materials", self.materials.len());
-        println!("{} meshes", self.meshes.len());
-        println!("{} textures", self.textures.len());
+        let mut parts = Vec::new();
 
-        ParsedModel::default()
+        for mesh in &self.meshes {
+            let geometry = self.geometry_mesh(mesh.geometry_mesh_index).unwrap();
+            for (i, indices) in geometry.indices_per_material.iter().enumerate() {
+                let material = self.material(mesh.materials[i]);
+
+                let texture: Option<ParsedTexture> = material
+                    .and_then(|m| m.diffuse_texture)
+                    .and_then(|i| self.texture(i))
+                    .map(|texture| texture.clone().into());
+
+                let vertices = geometry
+                    .positions
+                    .iter()
+                    .zip(geometry.normals.iter())
+                    .zip(geometry.uv.iter())
+                    .map(|((position, normal), uv)| Vertex {
+                        position_in: position.clone().into(),
+                        normal_in: normal.clone().into(),
+                        tex_coord_in: uv.clone().into(),
+                    })
+                    .collect();
+
+                parts.push(ParsedModelPart {
+                    index: indices.clone().into(),
+                    material: material.cloned().map(Into::into),
+                    vertices: Some(vertices),
+                    texture,
+                });
+            }
+        }
+
+        ParsedModel {
+            parts,
+            vertices: None,
+        }
     }
 }

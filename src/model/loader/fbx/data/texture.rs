@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use crate::model::loader::ParsedTexture;
 use image::DynamicImage;
 
 /// Texture.
@@ -19,6 +20,21 @@ pub struct Texture {
     pub wrap_mode_u: WrapMode,
     /// Wrap mode for V axis.
     pub wrap_mode_v: WrapMode,
+}
+
+impl Into<ParsedTexture> for Texture {
+    fn into(self) -> ParsedTexture {
+        let image = self.image.to_rgba();
+        let width = image.width();
+        let height = image.height();
+        let rgba_data = image.into_raw();
+
+        ParsedTexture {
+            width,
+            height,
+            rgba_data,
+        }
+    }
 }
 
 impl fmt::Debug for Texture {

@@ -48,12 +48,18 @@ impl super::Model {
                     .unwrap(),
             );
 
+            let vertex_buffer = group
+                .vertex_buffer
+                .as_ref()
+                .or_else(|| self.vertex_buffer.as_ref())
+                .expect("Model has no valid vertex buffer");
+
             command_buffer_builder = if let Some(index) = group.index.as_ref() {
                 command_buffer_builder
                     .draw_indexed(
                         pipeline.pipeline.clone(),
                         &pipeline.dynamic_state,
-                        vec![self.vertex_buffer.clone()],
+                        vec![vertex_buffer.clone()],
                         index.clone(),
                         set.clone(),
                         (),
@@ -64,7 +70,7 @@ impl super::Model {
                     .draw(
                         pipeline.pipeline.clone(),
                         &pipeline.dynamic_state,
-                        vec![self.vertex_buffer.clone()],
+                        vec![vertex_buffer.clone()],
                         set,
                         (),
                     )
@@ -200,6 +206,23 @@ layout(set = 0, binding = 0) uniform Data {
     float material_shininess;
 } uniforms;
 
+vec3 max_member(vec3 lhs, vec3 rhs) {
+    return vec3(
+        max(lhs.x, rhs.x),
+        max(lhs.y, rhs.y),
+        max(lhs.z, rhs.z)
+    );
+}
+
+vec4 min_member(vec4 lhs, vec4 rhs) {
+    return vec4(
+        min(lhs.x, rhs.x),
+        min(lhs.y, rhs.y),
+        min(lhs.z, rhs.z),
+        min(lhs.w, rhs.w)
+    );
+}
+
 vec4 CalcDirLight(DirectionalLight light, vec4 tex_color, vec3 normal, vec3 viewDir)
 {
     vec3 direction = vec3(light.direction_x, light.direction_y, light.direction_z);
@@ -221,16 +244,9 @@ vec4 CalcDirLight(DirectionalLight light, vec4 tex_color, vec3 normal, vec3 view
     ambient  = ambient  * material_ambient;
     diffuse  = diffuse  * diff * material_diffuse;
     specular = specular * spec * material_specular;
-    return tex_color * vec4(ambient + diffuse + specular, 1.0);
+    return tex_color * min_member(vec4(ambient + diffuse + specular, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
 } 
 
-vec3 max_member(vec3 lhs, vec3 rhs) {
-    return vec3(
-        max(lhs.x, rhs.x),
-        max(lhs.y, rhs.y),
-        max(lhs.z, rhs.z)
-    );
-}
 
 void main() {
     if(fragment_tex_coord.x < 0.0 && fragment_tex_coord.y < 0.0) {

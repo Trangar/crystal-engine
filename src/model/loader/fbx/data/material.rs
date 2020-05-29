@@ -32,3 +32,16 @@ pub struct LambertData {
     /// Emissive.
     pub emissive: RGB<f32>,
 }
+
+impl Into<crate::render::Material> for Material {
+    fn into(self) -> crate::render::Material {
+        match self.data {
+            ShadingData::Lambert(lambert) => crate::render::Material {
+                ambient: lambert.ambient.into(),
+                diffuse: lambert.diffuse.into(),
+                specular: lambert.emissive.into(),
+                shininess: 0.0,
+            },
+        }
+    }
+}

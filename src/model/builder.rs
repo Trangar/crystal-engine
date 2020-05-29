@@ -63,6 +63,7 @@ impl<'a> ModelBuilder<'a> {
 
         let source = self.source_or_shape.parse();
         let device = self.game_state.device.clone();
+        let queue = self.game_state.queue.clone();
 
         let (tex, mut futures) = if let Some(texture) = self.texture {
             let (tex, tex_future) = load_texture(self.game_state.queue.clone(), texture);
@@ -71,19 +72,24 @@ impl<'a> ModelBuilder<'a> {
             (None, Vec::new())
         };
 
-        let vertex_buffer = CpuAccessibleBuffer::from_iter(
-            device.clone(),
-            BufferUsage::all(),
-            false,
-            source.vertices.iter().copied(),
-        )
-        .unwrap();
+        let vertex_buffer = if let Some(vertices) = source.vertices {
+            CpuAccessibleBuffer::from_iter(
+                device.clone(),
+                BufferUsage::all(),
+                false,
+                vertices.iter().copied(),
+            )
+            .ok()
+        } else {
+            None
+        };
 
         let mut groups: Vec<_> = source
             .parts
             .into_iter()
             .map(|part| {
-                let (group, maybe_future) = ModelGroup::from_part(device.clone(), &tex, part);
+                let (group, maybe_future) =
+                    ModelGroup::from_part(device.clone(), queue.clone(), &tex, part);
                 if let Some(fut) = maybe_future {
                     futures.push(fut);
                 }
@@ -93,6 +99,7 @@ impl<'a> ModelBuilder<'a> {
 
         if groups.is_empty() {
             // we always need a single group, so add a dummy group
+            // TODO: Why do we always need a single group?
             groups.push(ModelGroup::from_tex(tex));
         }
 
@@ -101,6 +108,16 @@ impl<'a> ModelBuilder<'a> {
             groups,
             texture_future: RwLock::new(futures),
         };
+        if cfg!(debug_assertions)
+            && model.vertex_buffer.is_none()
+            && model.groups.iter().all(|g| g.vertex_buffer.is_none())
+        {
+            panic!(
+                "Model {:?} has no valid vertex buffer",
+                self.source_or_shape
+            );
+        }
+
         let (handle, id, data) =
             ModelHandle::from_model(Arc::new(model), self.game_state.model_handle_sender.clone());
         self.game_state.model_handles.insert(id, data);

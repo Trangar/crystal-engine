@@ -41,10 +41,7 @@ pub fn load(src: &str) -> ParsedModel {
                 });
             }
 
-            let mut part = ParsedModelPart {
-                index: index_group.into(),
-                material: None,
-            };
+            let mut part: ParsedModelPart = index_group.into();
             let material = group.material.and_then(|m| match m {
                 ObjMaterial::Mtl(mtl) => Some(mtl),
                 ObjMaterial::Ref(name) => material_libs
