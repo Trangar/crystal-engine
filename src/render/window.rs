@@ -3,7 +3,10 @@ use crate::{model::ModelHandleMessage, Game, GameState};
 use std::sync::mpsc::{channel, Receiver};
 use vulkano::{
     device::{Device, DeviceExtensions, Features},
-    instance::{Instance, PhysicalDevice, QueueFamily, Version},
+    instance::{
+        debug::{DebugCallback, MessageSeverity},
+        Instance, InstanceExtensions, PhysicalDevice, QueueFamily, Version,
+    },
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::{
@@ -20,14 +23,41 @@ pub struct Window<GAME: Game + 'static> {
     game_state: GameState,
     model_handle_receiver: Receiver<ModelHandleMessage>,
     game: GAME,
+    _dbg: Option<DebugCallback>,
+}
+
+fn msg_severity(s: MessageSeverity) -> char {
+    if s.error {
+        'E'
+    } else if s.warning {
+        'W'
+    } else if s.information {
+        'I'
+    } else if s.verbose {
+        'V'
+    } else {
+        '?'
+    }
 }
 
 impl<GAME: Game + 'static> Window<GAME> {
     /// Create a new instance of the window. This will immediately instantiate an instance of [Game].
     pub fn new(width: f32, height: f32) -> Self {
         let instance = {
-            let extensions = vulkano_win::required_extensions();
+            let extensions = InstanceExtensions {
+                ext_debug_utils: true,
+                ..vulkano_win::required_extensions()
+            };
             Instance::new(None, &extensions, None).expect("failed to create Vulkan instance")
+        };
+
+        let _dbg = if cfg!(debug_assertions) {
+            DebugCallback::errors_and_warnings(&instance, |msg| {
+                println!("{}> {}", msg_severity(msg.severity), msg.description);
+            })
+            .ok()
+        } else {
+            None
         };
 
         let mut physical = None;
@@ -90,6 +120,7 @@ impl<GAME: Game + 'static> Window<GAME> {
             model_handle_receiver: receiver,
             game_state,
             game,
+            _dbg,
         }
     }
 
@@ -116,6 +147,7 @@ impl<GAME: Game + 'static> Window<GAME> {
             self.game_state.camera,
             self.dimensions,
             self.game_state.model_handles.values(),
+            self.game_state.gui_elements.iter(),
             self.game_state.light.directional.to_shader_value(),
         );
         self.update();

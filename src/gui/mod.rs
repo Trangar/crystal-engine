@@ -1,99 +1,21 @@
-use super::{data::ModelDataGroup, Material};
-use crate::render::RenderPipeline;
-use cgmath::Matrix4;
-use std::{mem, sync::Arc};
-use vulkano::{
-    command_buffer::AutoCommandBufferBuilder,
-    descriptor::descriptor_set::PersistentDescriptorSet,
-    sync::{now, GpuFuture},
-};
+mod element;
 
-impl super::Model {
-    pub fn render(
-        &self,
-        future: &mut Box<dyn GpuFuture>,
-        groups: &[ModelDataGroup],
-        base_matrix: Matrix4<f32>,
-        data: &mut vs::ty::Data,
-        command_buffer_builder: &mut AutoCommandBufferBuilder,
-        pipeline: &mut RenderPipeline,
-    ) {
-        if !self.texture_future.read().is_empty() {
-            let texture_futures = mem::replace(&mut *self.texture_future.write(), Vec::new());
-            for fut in texture_futures {
-                let tmp = std::mem::replace(future, now(pipeline.device.clone()).boxed());
-                *future = tmp.join(fut).boxed();
-            }
-        }
-        let layout = pipeline.world_pipeline.descriptor_set_layout(0).unwrap();
+pub use self::element::GuiElement;
 
-        for (group, group_data) in self.groups.iter().zip(groups.iter()) {
-            let texture = group
-                .texture
-                .as_ref()
-                .unwrap_or(&pipeline.empty_texture)
-                .clone();
-
-            data.world = (base_matrix * group_data.matrix).into();
-            update_uniform_material(data, group.material.as_ref());
-
-            let uniform_buffer_subbuffer = pipeline.world_uniform_buffer.next(*data).unwrap();
-
-            let set = Arc::new(
-                PersistentDescriptorSet::start(layout.clone())
-                    .add_buffer(uniform_buffer_subbuffer)
-                    .unwrap()
-                    .add_sampled_image(texture, pipeline.sampler.clone())
-                    .unwrap()
-                    .build_with_pool(&mut pipeline.descriptor_pool)
-                    .unwrap(),
-            );
-
-            let vertex_buffer = group
-                .vertex_buffer
-                .as_ref()
-                .or_else(|| self.vertex_buffer.as_ref())
-                .expect("Model has no valid vertex buffer");
-
-            if let Some(index) = group.index.as_ref() {
-                command_buffer_builder
-                    .draw_indexed(
-                        pipeline.world_pipeline.clone(),
-                        &pipeline.dynamic_state,
-                        vec![vertex_buffer.clone()],
-                        index.clone(),
-                        set.clone(),
-                        (),
-                    )
-                    .unwrap();
-            } else {
-                command_buffer_builder
-                    .draw(
-                        pipeline.world_pipeline.clone(),
-                        &pipeline.dynamic_state,
-                        vec![vertex_buffer.clone()],
-                        set,
-                        (),
-                    )
-                    .unwrap();
-            }
-        }
-    }
+/*#[derive(Default, Copy, Clone)]
+pub struct Vertex {
+    pub offset: [f32; 2],
+    pub tex_coord: [f32; 2],
 }
+vulkano::impl_vertex!(Vertex, offset, tex_coord);*/
 
-pub(crate) fn update_uniform_material(data: &mut vs::ty::Data, material: Option<&Material>) {
-    let material = material.cloned().unwrap_or_default();
-    data.material_ambient_r = material.ambient[0];
-    data.material_ambient_g = material.ambient[1];
-    data.material_ambient_b = material.ambient[2];
-    data.material_specular_r = material.specular[0];
-    data.material_specular_g = material.specular[1];
-    data.material_specular_b = material.specular[2];
-    data.material_diffuse_r = material.diffuse[0];
-    data.material_diffuse_g = material.diffuse[1];
-    data.material_diffuse_b = material.diffuse[2];
-    data.material_shininess = material.shininess;
+#[derive(Default, Copy, Clone)]
+pub struct Vertex {
+    pub position_in: [f32; 3],
+    pub normal_in: [f32; 3],
+    pub tex_coord_in: [f32; 2],
 }
+vulkano::impl_vertex!(Vertex, position_in, normal_in, tex_coord_in);
 
 pub mod vs {
     vulkano_shaders::shader! {
@@ -105,7 +27,7 @@ layout(location = 1) in vec3 normal_in;
 layout(location = 2) in vec2 tex_coord_in;
 
 layout(location = 0) out vec2 fragment_tex_coord;
-layout(location = 1) out vec3 fragment_normal;
+// layout(location = 1) out vec3 fragment_normal;
 
 struct DirectionalLight {
     float direction_x;
@@ -150,7 +72,7 @@ void main() {
     gl_Position = uniforms.proj * worldview * vec4(position_in, 1.0);
     fragment_tex_coord = tex_coord_in;
 
-    fragment_normal = transpose(inverse(mat3(worldview))) * normal_in;
+    // fragment_normal = transpose(inverse(mat3(worldview))) * normal_in;
 }
 "
     }
@@ -162,7 +84,7 @@ pub mod fs {
         src: "#version 450
 
 layout(location = 0) in vec2 fragment_tex_coord;
-layout(location = 1) in vec3 fragment_normal;
+// layout(location = 1) in vec3 fragment_normal;
 
 layout(location = 0) out vec4 f_color;
 
@@ -254,7 +176,7 @@ void main() {
         f_color = texture(tex, fragment_tex_coord);
     }
 
-    vec3 camera_pos = vec3(uniforms.camera_x, uniforms.camera_y, uniforms.camera_z);
+    /*vec3 camera_pos = vec3(uniforms.camera_x, uniforms.camera_y, uniforms.camera_z);
     
     for(int i = 0; i < uniforms.lightCount; i++) {
         f_color = CalcDirLight(
@@ -263,8 +185,58 @@ void main() {
             fragment_normal,
             camera_pos
         );
-    }
+    }*/
 }
 "
     }
 }
+/*
+pub mod vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        src: "#version 450
+
+layout(location = 0) in vec2 offset;
+layout(location = 1) in vec2 tex_coord;
+
+layout(location = 0) out vec2 fragment_tex_coord;
+
+layout(set = 0, binding = 0) uniform Data {
+    vec2 screen_size;
+    vec2 position;
+    vec2 size;
+} uniforms;
+
+void main() {
+    // vec2 pos = uniforms.position + offset * uniforms.size;
+
+    // gl_Position = vec4(pos / (uniforms.screen_size * 2) - 1, 0.0, 0.0);
+    gl_Position = vec4(offset, 0.0, 0.0);
+    fragment_tex_coord = tex_coord;
+}
+"
+    }
+}
+
+pub mod fs {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        src: "#version 450
+
+layout(location = 0) in vec2 fragment_tex_coord;
+
+layout(location = 0) out vec4 f_color;
+
+layout(set = 0, binding = 1) uniform sampler2D tex;
+layout(set = 0, binding = 0) uniform Data {
+    vec2 screen_size;
+    vec2 position;
+    vec2 size;
+} uniforms;
+
+void main() {
+    f_color = vec4(1.0, 1.0, 1.0, 1.0); // texture(tex, fragment_tex_coord);
+}
+"
+    }
+}*/

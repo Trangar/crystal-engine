@@ -1,5 +1,5 @@
 use super::{CowVertex, ParsedModel, ParsedModelPart};
-use crate::render::{Material, Vertex};
+use crate::model::{Material, Vertex};
 use genmesh::EmitTriangles;
 use obj::ObjMaterial;
 use std::sync::Arc;

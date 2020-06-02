@@ -1,4 +1,5 @@
 use crate::{
+    gui::GuiElement,
     model::{ModelBuilder, ModelData, ModelHandleMessage, SourceOrShape},
     render::LightState,
 };
@@ -21,6 +22,7 @@ pub struct GameState {
     // models: Vec<Arc<Model>>,
     pub(crate) model_handles: HashMap<u64, Arc<RwLock<ModelData>>>,
     pub(crate) model_handle_sender: Sender<ModelHandleMessage>,
+    pub(crate) gui_elements: Vec<GuiElement>,
     pub(crate) is_running: bool,
     /// The matrix of the camera currently in use.
     ///
@@ -45,6 +47,7 @@ impl GameState {
             queue,
             model_handles: HashMap::new(),
             model_handle_sender: sender,
+            gui_elements: Vec::new(),
             is_running: true,
             // models: Vec::new(),
             camera: Matrix4::identity(),

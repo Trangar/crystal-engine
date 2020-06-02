@@ -67,6 +67,7 @@
 #![warn(missing_docs)]
 
 mod game_state;
+mod gui;
 mod model;
 mod render;
 

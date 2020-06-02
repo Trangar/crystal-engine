@@ -1,11 +1,11 @@
 //! Scene.
 
-use crate::{
-    model::loader::{
+use crate::model::{
+    loader::{
         fbx::data::{GeometryMesh, Material, Mesh, Texture},
         ParsedModel, ParsedModelPart, ParsedTexture,
     },
-    render::Vertex,
+    Vertex,
 };
 
 /// Scene.
