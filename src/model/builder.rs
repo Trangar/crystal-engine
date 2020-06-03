@@ -9,7 +9,7 @@ use vulkano::{
     device::Queue,
     format::R8G8B8A8Srgb,
     image::{Dimensions, ImmutableImage},
-    sync::NowFuture,
+    sync::{GpuFuture, NowFuture},
 };
 
 pub struct ModelBuilder<'a> {
@@ -67,7 +67,7 @@ impl<'a> ModelBuilder<'a> {
 
         let (tex, mut futures) = if let Some(texture) = self.texture {
             let (tex, tex_future) = load_texture(self.game_state.queue.clone(), texture);
-            (Some(tex), vec![Box::new(tex_future) as _])
+            (Some(tex), vec![tex_future.boxed()])
         } else {
             (None, Vec::new())
         };

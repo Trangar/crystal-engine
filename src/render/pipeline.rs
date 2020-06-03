@@ -158,7 +158,7 @@ impl RenderPipeline {
             dimensions,
             empty_texture,
             sampler,
-            next_frame_futures: vec![Box::new(fut) as _],
+            next_frame_futures: vec![fut.boxed()],
             descriptor_pool,
         }
     }
@@ -276,10 +276,10 @@ impl RenderPipeline {
         let mut data = default_uniform(camera, proj, directional_lights);
 
         // Build a list of futures that need to be processed before this frame is drawn
-        let mut start_future = Box::new(acquire_future) as Box<dyn GpuFuture>;
+        let mut start_future = acquire_future.boxed();
         // Drain the futures that were queued from last frame
         for fut in mem::replace(&mut self.next_frame_futures, Vec::new()) {
-            start_future = Box::new(start_future.join(fut)) as _;
+            start_future = start_future.join(fut).boxed();
         }
 
         for handle in models {
@@ -297,18 +297,12 @@ impl RenderPipeline {
         command_buffer_builder.end_render_pass().unwrap();
         let command_buffer = command_buffer_builder.build().unwrap();
 
-        let future = Box::new(
-            start_future
-                .then_execute(self.queue.clone(), command_buffer)
-                .unwrap()
-                // The color output is now expected to contain our triangle. But in order to show it on
-                // the screen, we have to *present* the image by calling `present`.
-                //
-                // This function does not actually present the image immediately. Instead it submits a
-                // present command at the end of the queue. This means that it will only be presented once
-                // the GPU has finished executing the command buffer that draws the triangle.
-                .then_swapchain_present(self.queue.clone(), self.swapchain.clone(), image_num),
-        ) as Box<dyn GpuFuture>;
+        let future = start_future
+            .then_execute(self.queue.clone(), command_buffer)
+            .unwrap()
+            .then_swapchain_present(self.queue.clone(), self.swapchain.clone(), image_num)
+            .boxed();
+
         let future = future.then_signal_fence_and_flush();
 
         match future {
