@@ -11,9 +11,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-vulkano = "0.18.0"
-vulkano-win = "0.18.0"
-vulkano-shaders = "0.18.0"
+vulkano = "0.19.0"
+vulkano-win = "0.19.0"
+vulkano-shaders = "0.19.0"
 winit = "0.22.2"
 cgmath = { version = "0.17.0", features = ["mint"] }
 parking_lot = "0.10.2"

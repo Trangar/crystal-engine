@@ -3,25 +3,26 @@ use crate::render::{Material, RenderPipeline};
 use cgmath::Matrix4;
 use std::{mem, sync::Arc};
 use vulkano::{
-    command_buffer::AutoCommandBufferBuilder, descriptor::descriptor_set::PersistentDescriptorSet,
-    sync::GpuFuture,
+    command_buffer::AutoCommandBufferBuilder,
+    descriptor::descriptor_set::PersistentDescriptorSet,
+    sync::{now, GpuFuture},
 };
 
 impl super::Model {
     pub fn render(
         &self,
-        mut future: Box<dyn GpuFuture>,
+        future: &mut Box<dyn GpuFuture>,
         groups: &[ModelDataGroup],
         base_matrix: Matrix4<f32>,
         data: &mut vs::ty::Data,
-        mut command_buffer_builder: AutoCommandBufferBuilder,
-
+        command_buffer_builder: &mut AutoCommandBufferBuilder,
         pipeline: &mut RenderPipeline,
-    ) -> (AutoCommandBufferBuilder, Box<dyn GpuFuture>) {
+    ) {
         if !self.texture_future.read().is_empty() {
             let texture_futures = mem::replace(&mut *self.texture_future.write(), Vec::new());
             for fut in texture_futures {
-                future = Box::new(future.join(fut)) as _;
+                let tmp = std::mem::replace(future, now(pipeline.device.clone()).boxed());
+                *future = tmp.join(fut).boxed();
             }
         }
         let layout = pipeline.pipeline.descriptor_set_layout(0).unwrap();
@@ -54,7 +55,7 @@ impl super::Model {
                 .or_else(|| self.vertex_buffer.as_ref())
                 .expect("Model has no valid vertex buffer");
 
-            command_buffer_builder = if let Some(index) = group.index.as_ref() {
+            if let Some(index) = group.index.as_ref() {
                 command_buffer_builder
                     .draw_indexed(
                         pipeline.pipeline.clone(),
@@ -64,7 +65,7 @@ impl super::Model {
                         set.clone(),
                         (),
                     )
-                    .unwrap()
+                    .unwrap();
             } else {
                 command_buffer_builder
                     .draw(
@@ -74,11 +75,9 @@ impl super::Model {
                         set,
                         (),
                     )
-                    .unwrap()
-            };
+                    .unwrap();
+            }
         }
-
-        (command_buffer_builder, future)
     }
 }
 

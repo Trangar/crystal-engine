@@ -23,7 +23,7 @@ use vulkano::{
 };
 
 pub struct RenderPipeline {
-    device: Arc<Device>,
+    pub(crate) device: Arc<Device>,
     queue: Arc<Queue>,
     dimensions: [f32; 2],
     pub(crate) pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
@@ -257,13 +257,15 @@ impl RenderPipeline {
             self.device.clone(),
             self.queue.family(),
         )
-        .unwrap()
-        .begin_render_pass(
-            self.framebuffers[image_num].clone(),
-            false,
-            vec![[0.5, 0.5, 1.0, 1.0].into(), 1f32.into()],
-        )
         .unwrap();
+
+        command_buffer_builder
+            .begin_render_pass(
+                self.framebuffers[image_num].clone(),
+                false,
+                vec![[0.5, 0.5, 1.0, 1.0].into(), 1f32.into()],
+            )
+            .unwrap();
 
         let proj = cgmath::perspective(
             Rad(std::f32::consts::FRAC_PI_2),
@@ -283,23 +285,17 @@ impl RenderPipeline {
         for handle in models {
             let handle = handle.read();
 
-            let result = handle.model.render(
-                start_future,
+            handle.model.render(
+                &mut start_future,
                 &handle.groups,
                 handle.matrix(),
                 &mut data,
-                command_buffer_builder,
+                &mut command_buffer_builder,
                 self,
             );
-            command_buffer_builder = result.0;
-            start_future = result.1;
         }
-
-        let command_buffer = command_buffer_builder
-            .end_render_pass()
-            .unwrap()
-            .build()
-            .unwrap();
+        command_buffer_builder.end_render_pass().unwrap();
+        let command_buffer = command_buffer_builder.build().unwrap();
 
         let future = Box::new(
             start_future
