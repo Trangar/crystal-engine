@@ -1,9 +1,7 @@
 use super::GuiElement;
 use crate::GameState;
-use glyph_brush::{
-    ab_glyph::FontArc, GlyphBrush, GlyphBrushBuilder, HorizontalAlign, Layout, Section, Text,
-    VerticalAlign,
-};
+use image::Pixel;
+use rusttype::Font;
 use std::borrow::Cow;
 
 pub struct GuiElementBuilder<'a> {
@@ -67,7 +65,7 @@ pub struct GuiElementCanvasBuilder<'a, 'b> {
 }
 
 struct TextRequest<'a> {
-    font: FontArc,
+    font: &'a Font<'a>,
     font_size: u16,
     text: Cow<'a, str>,
     color: [u8; 4],
@@ -80,7 +78,7 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
     }
     pub fn with_text(
         mut self,
-        font: FontArc,
+        font: &'b Font<'b>,
         font_size: u16,
         text: Cow<'b, str>,
         color: [u8; 4],
@@ -102,64 +100,99 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
 
         let mut data = vec![0; width as usize * height as usize * 4];
 
+        let mut image = image::RgbaImage::from_raw(width, height, data).unwrap();
+
         for x in 0..width {
             for y in 0..height {
                 let ps = if let Some(border_color) = is_border(x, y, width, height, &self.border) {
                     border_color
                 } else {
-                    &self.color
+                    self.color
                 };
 
-                let idx = ((y as usize * width as usize) + x as usize) * 4;
-                data[idx..idx + 4].copy_from_slice(ps);
+                image.put_pixel(x, y, image::Rgba(ps));
             }
         }
 
         if let Some(request) = self.text {
-            let mut glyph_brush: GlyphBrush<()> =
-                GlyphBrushBuilder::using_font(request.font).build();
-
-            glyph_brush.queue(
-                Section::default()
-                    .add_text(Text::new(&request.text).with_scale(request.font_size as f32))
-                    .with_bounds((width as f32, height as f32))
-                    .with_layout(
-                        Layout::default()
-                            .h_align(HorizontalAlign::Center)
-                            .v_align(VerticalAlign::Center),
-                    ),
-            );
-
-            let font_color = request.color;
-
-            glyph_brush
-                .process_queued(
-                    |rect, mut px| {
-                        for x in rect.min[0]..rect.max[0] {
-                            for y in rect.min[1]..rect.max[1] {
-                                let idx = ((y as usize * width as usize) + x as usize) * 4;
-                                let (alpha, remaining) = px.split_first().unwrap();
-                                px = remaining;
-
-                                let color = &mut data[idx..idx + 4];
-                                // TODO: Properly merge these colors
-                                if *alpha > 100 {
-                                    color.copy_from_slice(&font_color);
-                                }
-                            }
-                        }
-                        assert!(px.is_empty());
-                    },
-                    |_vertex_data| {},
+            let scale = rusttype::Scale::uniform(request.font_size as f32);
+            let v_metrics = request.font.v_metrics(scale);
+            let glyphs: Vec<_> = request
+                .font
+                .layout(
+                    request.text.trim(),
+                    scale,
+                    rusttype::point(0.0, v_metrics.ascent),
                 )
-                .unwrap();
+                .collect();
+
+            if !glyphs.is_empty() {
+                let total_bounding_box = calc_text_bounding_box(glyphs.iter());
+
+                let text_width = total_bounding_box.max.x - total_bounding_box.min.x;
+                let text_height = total_bounding_box.max.y - total_bounding_box.min.y;
+                let position = (
+                    (width as i32 - text_width) / 2,
+                    (height as i32 - text_height) / 2,
+                );
+                let color = request.color;
+
+                for glyph in glyphs {
+                    if let Some(bounding_box) = glyph.pixel_bounding_box() {
+                        glyph.draw(|x, y, v| {
+                            let x = position.0 + x as i32 + bounding_box.min.x;
+                            let y = position.1 + y as i32 + bounding_box.min.y;
+                            if x < 0
+                                || y < 0
+                                || x >= image.width() as i32
+                                || y >= image.height() as i32
+                            {
+                                return;
+                            }
+                            image.get_pixel_mut(x as u32, y as u32).blend(&image::Rgba([
+                                color[0],
+                                color[1],
+                                color[2],
+                                (v * 255.) as u8,
+                            ]));
+                        });
+                    }
+                }
+            }
         }
 
-        let (element_ref, element) = GuiElement::new(queue, self.dimensions, (width, height, data));
+        let (element_ref, element) =
+            GuiElement::new(queue, self.dimensions, (width, height, image.into_raw()));
         self.game_state.gui_elements.push(element_ref);
 
         element
     }
+}
+
+fn calc_text_bounding_box<'a>(
+    glyphs: impl Iterator<Item = &'a rusttype::PositionedGlyph<'a>>,
+) -> rusttype::Rect<i32> {
+    let mut total_bounding_box = rusttype::Rect {
+        min: rusttype::Point {
+            x: i32::max_value(),
+            y: i32::max_value(),
+        },
+        max: rusttype::Point {
+            x: i32::min_value(),
+            y: i32::min_value(),
+        },
+    };
+
+    for glyph in glyphs {
+        if let Some(bounding_box) = glyph.pixel_bounding_box() {
+            total_bounding_box.min.x = total_bounding_box.min.x.min(bounding_box.min.x);
+            total_bounding_box.min.y = total_bounding_box.min.y.min(bounding_box.min.y);
+
+            total_bounding_box.max.x = total_bounding_box.max.x.max(bounding_box.max.x);
+            total_bounding_box.max.y = total_bounding_box.min.y.max(bounding_box.max.y);
+        }
+    }
+    total_bounding_box
 }
 
 fn is_border(
@@ -168,7 +201,7 @@ fn is_border(
     width: u32,
     height: u32,
     maybe_border: &Option<(u16, [u8; 4])>,
-) -> Option<&[u8; 4]> {
+) -> Option<[u8; 4]> {
     if let Some((border_width, border_color)) = maybe_border {
         let border_width = *border_width as u32;
         if x < border_width
@@ -176,7 +209,7 @@ fn is_border(
             || y < border_width
             || y + border_width >= height
         {
-            return Some(border_color);
+            return Some(*border_color);
         }
     }
     None

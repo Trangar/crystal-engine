@@ -4,8 +4,8 @@ use crate::{
     render::LightState,
 };
 use cgmath::{Matrix4, SquareMatrix};
-use glyph_brush::ab_glyph::FontArc;
 use parking_lot::RwLock;
+use rusttype::Font;
 use std::{
     collections::{HashMap, HashSet},
     sync::{mpsc::Sender, Arc},
@@ -34,8 +34,6 @@ pub struct GameState {
     /// The state of the lights currently in the world.
     pub light: LightState,
     surface: Arc<Surface<winit::window::Window>>,
-
-    fonts: HashMap<String, FontArc>,
 }
 
 impl GameState {
@@ -59,7 +57,6 @@ impl GameState {
             },
             light: LightState::new(),
             surface,
-            fonts: HashMap::new(),
         }
     }
 
@@ -71,21 +68,14 @@ impl GameState {
         self.model_handles.remove(&handle);
     }
 
-    pub fn load_font(&mut self, font: impl Into<String>) -> FontArc {
-        let path = font.into();
-        if let Some(font) = self.fonts.get(&path) {
-            font.clone()
-        } else {
-            use std::{fs::File, io::Read};
+    pub fn load_font(&mut self, font: impl AsRef<std::path::Path>) -> Font<'static> {
+        use std::{fs::File, io::Read};
 
-            let mut file = File::open(&path).unwrap();
-            let mut content = Vec::new();
-            file.read_to_end(&mut content).unwrap();
+        let mut file = File::open(font.as_ref()).unwrap();
+        let mut content = Vec::new();
+        file.read_to_end(&mut content).unwrap();
 
-            let font = FontArc::try_from_vec(content).unwrap();
-            self.fonts.insert(path, font.clone());
-            font
-        }
+        Font::try_from_vec(content).unwrap()
     }
 
     /// Get a reference to the winit window. This can be used to set the title with `set_title`, grap the cursor with `set_cursor_grab` and `set_cursor_visible`, and more.

@@ -135,19 +135,19 @@ impl Pipeline {
 const VERTICES: &[Vertex] = &[
     Vertex {
         offset: [0.0, 0.0],
-        tex_coord: [0.0, 0.0],
-    },
-    Vertex {
-        offset: [0.0, 1.0],
         tex_coord: [0.0, 1.0],
     },
     Vertex {
+        offset: [0.0, 1.0],
+        tex_coord: [0.0, 0.0],
+    },
+    Vertex {
         offset: [1.0, 0.0],
-        tex_coord: [1.0, 0.0],
+        tex_coord: [1.0, 1.0],
     },
     Vertex {
         offset: [1.0, 1.0],
-        tex_coord: [1.0, 1.0],
+        tex_coord: [1.0, 0.0],
     },
 ];
 

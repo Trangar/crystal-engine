@@ -77,7 +77,7 @@ pub use self::{
     model::{ModelData, ModelHandle},
     render::{DirectionalLight, LightColor, PointLight, PointLightAttenuation, Window},
 };
-pub use glyph_brush::ab_glyph::FontArc;
+pub use rusttype::Font;
 
 /// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.
 pub mod state {
