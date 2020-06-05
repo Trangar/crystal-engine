@@ -1,4 +1,4 @@
-use crate::render::{Material, Vertex};
+use crate::model::{Material, Vertex};
 use std::borrow::Cow;
 
 #[cfg(feature = "format-fbx")]
@@ -99,22 +99,22 @@ static RECTANGLE: (CowVertex, CowIndex) = (
         Vertex {
             position_in: [-0.5, -0.5, 0.0],
             normal_in: [0.0, 0.0, 1.0],
-            tex_coord_in: [1.0, 1.0],
+            tex_coord_in: [0.0, 1.0],
         },
         Vertex {
             position_in: [0.5, -0.5, 0.0],
             normal_in: [0.0, 0.0, 1.0],
-            tex_coord_in: [0.0, 1.0],
+            tex_coord_in: [1.0, 1.0],
         },
         Vertex {
             position_in: [0.5, 0.5, 0.0],
             normal_in: [0.0, 0.0, 1.0],
-            tex_coord_in: [0.0, 0.0],
+            tex_coord_in: [1.0, 0.0],
         },
         Vertex {
             position_in: [-0.5, 0.5, 0.0],
             normal_in: [0.0, 0.0, 1.0],
-            tex_coord_in: [1.0, 0.0],
+            tex_coord_in: [0.0, 0.0],
         },
     ]),
     Cow::Borrowed(&[Cow::Borrowed(&[0, 1, 2, 0, 2, 3])]),

@@ -67,19 +67,25 @@
 #![warn(missing_docs)]
 
 mod game_state;
+mod gui;
 mod model;
 mod render;
 
 pub use self::{
     game_state::GameState,
+    gui::GuiElement,
     model::{ModelData, ModelHandle},
     render::{DirectionalLight, LightColor, PointLight, PointLightAttenuation, Window},
 };
+pub use rusttype::Font;
 
 /// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.
 pub mod state {
     pub use crate::{
         game_state::KeyboardState,
+        gui::{
+            GuiElementBuilder, GuiElementCanvasBuilder, GuiElementData, GuiElementTextureBuilder,
+        },
         render::{FixedVec, LightState},
     };
 }

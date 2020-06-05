@@ -118,8 +118,10 @@ impl<'a> ModelBuilder<'a> {
             );
         }
 
-        let (handle, id, data) =
-            ModelHandle::from_model(Arc::new(model), self.game_state.model_handle_sender.clone());
+        let (handle, id, data) = ModelHandle::from_model(
+            Arc::new(model),
+            self.game_state.internal_update_sender.clone(),
+        );
         self.game_state.model_handles.insert(id, data);
 
         // TODO: Immediately set this on the handle

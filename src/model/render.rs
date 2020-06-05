@@ -1,5 +1,5 @@
-use super::data::ModelDataGroup;
-use crate::render::{Material, RenderPipeline};
+use super::{data::ModelDataGroup, Material};
+use crate::render::RenderPipeline;
 use cgmath::Matrix4;
 use std::{mem, sync::Arc};
 use vulkano::{
@@ -25,7 +25,7 @@ impl super::Model {
                 *future = tmp.join(fut).boxed();
             }
         }
-        let layout = pipeline.pipeline.descriptor_set_layout(0).unwrap();
+        let layout = pipeline.world_pipeline.descriptor_set_layout(0).unwrap();
 
         for (group, group_data) in self.groups.iter().zip(groups.iter()) {
             let texture = group
@@ -37,7 +37,7 @@ impl super::Model {
             data.world = (base_matrix * group_data.matrix).into();
             update_uniform_material(data, group.material.as_ref());
 
-            let uniform_buffer_subbuffer = pipeline.uniform_buffer.next(*data).unwrap();
+            let uniform_buffer_subbuffer = pipeline.world_uniform_buffer.next(*data).unwrap();
 
             let set = Arc::new(
                 PersistentDescriptorSet::start(layout.clone())
@@ -58,7 +58,7 @@ impl super::Model {
             if let Some(index) = group.index.as_ref() {
                 command_buffer_builder
                     .draw_indexed(
-                        pipeline.pipeline.clone(),
+                        pipeline.world_pipeline.clone(),
                         &pipeline.dynamic_state,
                         vec![vertex_buffer.clone()],
                         index.clone(),
@@ -69,7 +69,7 @@ impl super::Model {
             } else {
                 command_buffer_builder
                     .draw(
-                        pipeline.pipeline.clone(),
+                        pipeline.world_pipeline.clone(),
                         &pipeline.dynamic_state,
                         vec![vertex_buffer.clone()],
                         set,
@@ -81,7 +81,7 @@ impl super::Model {
     }
 }
 
-fn update_uniform_material(data: &mut vs::ty::Data, material: Option<&Material>) {
+pub(crate) fn update_uniform_material(data: &mut vs::ty::Data, material: Option<&Material>) {
     let material = material.cloned().unwrap_or_default();
     data.material_ambient_r = material.ambient[0];
     data.material_ambient_g = material.ambient[1];

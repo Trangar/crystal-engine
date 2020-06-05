@@ -1,4 +1,5 @@
 use super::{Model, ModelData};
+use crate::gui::GuiElementData;
 use cgmath::{Euler, Rad, Vector3};
 use parking_lot::RwLock;
 use std::sync::{mpsc::Sender, Arc};
@@ -9,14 +10,14 @@ use std::sync::{mpsc::Sender, Arc};
 ///
 /// When this handle is cloned, a second model will appear in the world. Both models can be controlled independently.
 pub struct ModelHandle {
-    message_handle: Sender<ModelHandleMessage>,
+    message_handle: Sender<InternalUpdateMessage>,
     data: Arc<RwLock<ModelData>>,
 }
 
 impl ModelHandle {
     pub(crate) fn from_model(
         model: Arc<Model>,
-        message_handle: Sender<ModelHandleMessage>,
+        message_handle: Sender<InternalUpdateMessage>,
     ) -> (Self, u64, Arc<RwLock<ModelData>>) {
         let (id, data) = ModelData::new(model);
         (
@@ -95,7 +96,7 @@ impl Clone for ModelHandle {
         // so we ignore the error
         let _ = self
             .message_handle
-            .send(ModelHandleMessage::NewClone(new_id, new_data));
+            .send(InternalUpdateMessage::NewModel(new_id, new_data));
 
         new_handle
     }
@@ -108,11 +109,13 @@ impl Drop for ModelHandle {
         // so we ignore the error
         let _ = self
             .message_handle
-            .send(ModelHandleMessage::Dropped(self.data.read().id));
+            .send(InternalUpdateMessage::ModelDropped(self.data.read().id));
     }
 }
 
-pub enum ModelHandleMessage {
-    NewClone(u64, Arc<RwLock<ModelData>>),
-    Dropped(u64),
+pub enum InternalUpdateMessage {
+    NewModel(u64, Arc<RwLock<ModelData>>),
+    ModelDropped(u64),
+    NewGuiElement(u64, u64, Arc<RwLock<GuiElementData>>),
+    GuiElementDropped(u64),
 }
