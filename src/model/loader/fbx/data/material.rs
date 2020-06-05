@@ -35,9 +35,9 @@ impl Into<crate::model::Material> for Material {
     fn into(self) -> crate::model::Material {
         match self.data {
             ShadingData::Lambert(lambert) => crate::model::Material {
-                ambient: lambert.ambient.into(),
-                diffuse: lambert.diffuse.into(),
-                specular: lambert.emissive.into(),
+                ambient: lambert.ambient,
+                diffuse: lambert.diffuse,
+                specular: lambert.emissive,
                 shininess: 0.0,
             },
         }
