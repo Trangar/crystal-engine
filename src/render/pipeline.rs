@@ -1,5 +1,5 @@
 use crate::{
-    gui::{fs as gui_fs, vs as gui_vs, GuiElement, Vertex as GuiVertex},
+    gui::{GuiElementRef, Pipeline as GuiPipeline},
     model::{fs as model_fs, vs as model_vs, ModelData, Vertex as ModelVertex},
 };
 use cgmath::{Matrix4, Rad, Zero};
@@ -30,13 +30,11 @@ pub struct RenderPipeline {
     queue: Arc<Queue>,
     dimensions: [f32; 2],
     pub(crate) world_pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
-    pub(crate) gui_pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
     pub(crate) dynamic_state: DynamicState,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
     pub(crate) empty_texture: Arc<ImmutableImage<R8G8B8A8Srgb>>,
     pub(crate) render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     pub(crate) world_uniform_buffer: CpuBufferPool<model_vs::ty::Data>,
-    pub(crate) gui_uniform_buffer: CpuBufferPool<gui_vs::ty::Data>,
     swapchain: Arc<Swapchain<winit::window::Window>>,
     swapchain_images: Vec<Arc<SwapchainImage<winit::window::Window>>>,
     swapchain_needs_refresh: bool,
@@ -44,6 +42,8 @@ pub struct RenderPipeline {
     next_frame_futures: Vec<Box<dyn GpuFuture>>,
 
     pub(crate) descriptor_pool: Arc<StdDescriptorPool>,
+
+    gui_pipeline: GuiPipeline,
 }
 
 impl RenderPipeline {
@@ -57,7 +57,7 @@ impl RenderPipeline {
         let caps = surface.capabilities(physical).unwrap();
         let format = caps.supported_formats[0].0;
         let render_pass = Arc::new(
-            vulkano::ordered_passes_renderpass!(device.clone(),
+            vulkano::single_pass_renderpass!(device.clone(),
                 attachments: {
                     color: {
                         load: Clear,
@@ -72,18 +72,10 @@ impl RenderPipeline {
                         samples: 1,
                     }
                 },
-                passes: [
-                    {
-                        color: [color],
-                        depth_stencil: {depth},
-                        input: []
-                    },
-                    {
-                        color: [color],
-                        depth_stencil: {depth},
-                        input: []
-                    }
-                ]
+                pass: {
+                    color: [color],
+                    depth_stencil: {depth}
+                }
             )
             .unwrap(),
         );
@@ -107,26 +99,8 @@ impl RenderPipeline {
                 .unwrap(),
         );
 
-        let vs = gui_vs::Shader::load(device.clone()).expect("failed to create shader module");
-        let fs = gui_fs::Shader::load(device.clone()).expect("failed to create shader module");
-
-        let gui_pipeline = Arc::new(
-            GraphicsPipeline::start()
-                .vertex_input_single_buffer::<GuiVertex>()
-                .vertex_shader(vs.main_entry_point(), ())
-                .viewports_dynamic_scissors_irrelevant(1)
-                .fragment_shader(fs.main_entry_point(), ())
-                .cull_mode_front()
-                .blend_alpha_blending()
-                .depth_stencil_simple_depth()
-                .render_pass(Subpass::from(render_pass.clone(), 1).unwrap())
-                .build(device.clone())
-                .unwrap(),
-        );
-
         let world_uniform_buffer =
             CpuBufferPool::<model_vs::ty::Data>::uniform_buffer(device.clone());
-        let gui_uniform_buffer = CpuBufferPool::<gui_vs::ty::Data>::uniform_buffer(device.clone());
 
         let usage = caps.supported_usage_flags;
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
@@ -176,6 +150,7 @@ impl RenderPipeline {
         let (empty_texture, fut) = generate_empty_texture(queue.clone(), [255, 0, 0, 255]);
         let descriptor_pool = Arc::new(StdDescriptorPool::new(device.clone()));
 
+        let gui_pipeline = GuiPipeline::create(device.clone(), render_pass.clone());
         Self {
             device,
             queue,
@@ -185,7 +160,6 @@ impl RenderPipeline {
             framebuffers,
             render_pass,
             world_uniform_buffer,
-            gui_uniform_buffer,
             swapchain,
             swapchain_images,
             swapchain_needs_refresh: false,
@@ -280,8 +254,8 @@ impl RenderPipeline {
         &mut self,
         camera: Matrix4<f32>,
         dimensions: [f32; 2],
-        mut models: impl Iterator<Item = &'a Arc<RwLock<ModelData>>>,
-        gui_elements: impl Iterator<Item = &'a GuiElement>,
+        models: impl Iterator<Item = &'a Arc<RwLock<ModelData>>>,
+        gui_elements: impl Iterator<Item = &'a mut GuiElementRef>,
         directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
     ) -> Option<FenceSignalFuture<Box<dyn GpuFuture>>> {
         let (image_num, acquire_future) = match self.get_swapchain_num() {
@@ -317,7 +291,7 @@ impl RenderPipeline {
             start_future = start_future.join(fut).boxed();
         }
 
-        for handle in models.next() {
+        for handle in models {
             let handle = handle.read();
 
             handle.model.render(
@@ -329,18 +303,15 @@ impl RenderPipeline {
                 self,
             );
         }
-        command_buffer_builder.next_subpass(false).unwrap();
 
-        for handle in models.next() {
-            let handle = handle.read();
-
-            GuiElement(Arc::clone(&handle.model)).render(
-                &mut start_future,
-                &handle.groups,
-                handle.matrix(),
-                &mut data,
+        for element in gui_elements {
+            self.gui_pipeline.render_element(
+                element,
                 &mut command_buffer_builder,
-                self,
+                &mut start_future,
+                self.dimensions,
+                &self.dynamic_state,
+                &mut self.descriptor_pool,
             );
         }
 

@@ -147,7 +147,7 @@ impl<GAME: Game + 'static> Window<GAME> {
             self.game_state.camera,
             self.dimensions,
             self.game_state.model_handles.values(),
-            self.game_state.gui_elements.iter(),
+            self.game_state.gui_elements.iter_mut(),
             self.game_state.light.directional.to_shader_value(),
         );
         self.update();

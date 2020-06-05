@@ -1,9 +1,10 @@
 use crate::{
-    gui::GuiElement,
+    gui::{GuiElementBuilder, GuiElementRef},
     model::{ModelBuilder, ModelData, ModelHandleMessage, SourceOrShape},
     render::LightState,
 };
 use cgmath::{Matrix4, SquareMatrix};
+use glyph_brush::ab_glyph::FontArc;
 use parking_lot::RwLock;
 use std::{
     collections::{HashMap, HashSet},
@@ -22,7 +23,7 @@ pub struct GameState {
     // models: Vec<Arc<Model>>,
     pub(crate) model_handles: HashMap<u64, Arc<RwLock<ModelData>>>,
     pub(crate) model_handle_sender: Sender<ModelHandleMessage>,
-    pub(crate) gui_elements: Vec<GuiElement>,
+    pub(crate) gui_elements: Vec<GuiElementRef>,
     pub(crate) is_running: bool,
     /// The matrix of the camera currently in use.
     ///
@@ -33,6 +34,8 @@ pub struct GameState {
     /// The state of the lights currently in the world.
     pub light: LightState,
     surface: Arc<Surface<winit::window::Window>>,
+
+    fonts: HashMap<String, FontArc>,
 }
 
 impl GameState {
@@ -56,6 +59,7 @@ impl GameState {
             },
             light: LightState::new(),
             surface,
+            fonts: HashMap::new(),
         }
     }
 
@@ -65,6 +69,23 @@ impl GameState {
 
     pub(crate) fn remove_model_handle(&mut self, handle: u64) {
         self.model_handles.remove(&handle);
+    }
+
+    pub fn load_font(&mut self, font: impl Into<String>) -> FontArc {
+        let path = font.into();
+        if let Some(font) = self.fonts.get(&path) {
+            font.clone()
+        } else {
+            use std::{fs::File, io::Read};
+
+            let mut file = File::open(&path).unwrap();
+            let mut content = Vec::new();
+            file.read_to_end(&mut content).unwrap();
+
+            let font = FontArc::try_from_vec(content).unwrap();
+            self.fonts.insert(path, font.clone());
+            font
+        }
     }
 
     /// Get a reference to the winit window. This can be used to set the title with `set_title`, grap the cursor with `set_cursor_grab` and `set_cursor_visible`, and more.
@@ -109,6 +130,13 @@ impl GameState {
     /// Exit the game. Once this function is called, it cannot be cancelled. This does not confirm with [Game::can_shutdown](trait.Game.html#method.can_shutdown).
     pub fn terminate_game(&mut self) {
         self.is_running = false;
+    }
+
+    /// Create a new GUI element
+    ///
+    /// TODO: Example
+    pub fn new_gui_element(&mut self, dimensions: (i32, i32, u32, u32)) -> GuiElementBuilder {
+        GuiElementBuilder::new(self, dimensions)
     }
 
     /// Create a new triangle at the origin of the world.
