@@ -28,7 +28,11 @@ impl GuiElementRef {
     }
 }
 
+/// The data of a [GuiElement]. This can be used to manipulate an existing GuiElement.
 pub struct GuiElementData {
+    /// The dimensions of the [GuiElement].
+    /// The format of this field is `(x, y, width, height)`.
+    /// This means that the right edge would be `dimensions.0 + dimensions.2` and the bottom edge would be `dimensions.1 + dimensions.3`.
     pub dimensions: (i32, i32, u32, u32),
 }
 
@@ -40,6 +44,11 @@ impl GuiElementData {
     }
 }
 
+/// A reference to a GUI element on the screen.
+///
+/// This reference can be [Clone]d to create a second element on the screen with the exact same parameters that were used to create this.
+///
+/// This reference can be modified with the [modify](#method.modify) method.
 pub struct GuiElement {
     id: u64,
     data: Arc<RwLock<GuiElementData>>,
@@ -112,6 +121,7 @@ impl GuiElement {
         )
     }
 
+    /// Modify the current GuiElement.
     pub fn modify(&self, cb: impl FnOnce(&mut GuiElementData)) {
         let mut lock = self.data.write();
         cb(&mut *lock);

@@ -4,6 +4,12 @@ use image::Pixel;
 use rusttype::Font;
 use std::borrow::Cow;
 
+/// A struct that is used to create a [GuiElement]. It is constructed by calling `GameState::add_new_element()`
+///
+/// This builder can either load a texture by calling [with_texture], or you can create a custom image by calling [with_canvas].
+///
+/// [with_texture]: #method.with_texture
+/// [with_canvas]: #method.with_canvas
 pub struct GuiElementBuilder<'a> {
     game_state: &'a mut GameState,
     dimensions: (i32, i32, u32, u32),
@@ -17,6 +23,7 @@ impl<'a> GuiElementBuilder<'a> {
         }
     }
 
+    /// Create a gui element with a texture
     pub fn with_texture<'b>(self, texture_path: &'b str) -> GuiElementTextureBuilder<'a, 'b> {
         GuiElementTextureBuilder {
             game_state: self.game_state,
@@ -25,6 +32,7 @@ impl<'a> GuiElementBuilder<'a> {
         }
     }
 
+    /// Create a gui element with a custom color. The returned [GuiElementCanvasBuilder] can be further changed to include text and borders.
     pub fn with_canvas(self, background_color: [u8; 4]) -> GuiElementCanvasBuilder<'a, 'static> {
         GuiElementCanvasBuilder {
             game_state: self.game_state,
@@ -36,12 +44,16 @@ impl<'a> GuiElementBuilder<'a> {
     }
 }
 
+/// A struct that is used to create a [GuiElement] with a texture. This is created by calling `GameState::create_gui_element().texture("..")`. Currently nothing can be manipulated in this struct.
 pub struct GuiElementTextureBuilder<'a, 'b> {
     game_state: &'a mut GameState,
     dimensions: (i32, i32, u32, u32),
     texture_path: &'b str,
 }
 impl<'a, 'b> GuiElementTextureBuilder<'a, 'b> {
+    /// Finish building the element and return it.
+    /// The returned [GuiElement] has to be stored somewhere, as it will be removed from the engine when dropped.
+    /// Starting next frame, the returned GuiElement will be rendered on the screen.
     pub fn build(self) -> GuiElement {
         let queue = self.game_state.queue.clone();
         let image = image::open(self.texture_path).unwrap().to_rgba();
@@ -57,6 +69,8 @@ impl<'a, 'b> GuiElementTextureBuilder<'a, 'b> {
         element
     }
 }
+/// A struct that is used to render a custom texture for a [GuiElement]. This can be further customized by e.g. `.with_text` and `with_border`.
+/// Finalize this GuiElement by calling `.build()`.
 pub struct GuiElementCanvasBuilder<'a, 'b> {
     game_state: &'a mut GameState,
     dimensions: (i32, i32, u32, u32),
@@ -73,10 +87,17 @@ struct TextRequest<'a> {
 }
 
 impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
+    /// Adds a border to the [GuiElement].
+    /// This will be subtracted from the size of the element,
+    /// e.g. if you have an element of 100 pixels wide with a border of 10 pixels the resulting outer width will still be 100 pixels,
+    /// while the inner width will be `100 - (left_border + right_border) = 100 - (10 + 10) = 80` pixels.
     pub fn with_border(mut self, border_width: u16, border_color: [u8; 4]) -> Self {
         self.border = Some((border_width, border_color));
         self
     }
+    /// Add a text to the GUI element. This text will be rendered in the center of the element, and does not respect newlines.
+    ///
+    /// An instance of [Font](rusttype::Font) can be obtained by calling `GameState::load_font`.
     pub fn with_text(
         mut self,
         font: &'b Font<'b>,
@@ -93,6 +114,9 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
         self
     }
 
+    /// Finish building the element and return it.
+    /// The returned [GuiElement] has to be stored somewhere, as it will be removed from the engine when dropped.
+    /// Starting next frame, the returned GuiElement will be rendered on the screen.
     pub fn build(self) -> GuiElement {
         let queue = self.game_state.queue.clone();
 
