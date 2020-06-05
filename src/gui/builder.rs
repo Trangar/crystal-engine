@@ -46,12 +46,13 @@ impl<'a, 'b> GuiElementTextureBuilder<'a, 'b> {
         let queue = self.game_state.queue.clone();
         let image = image::open(self.texture_path).unwrap().to_rgba();
 
-        let (element_ref, element) = GuiElement::new(
+        let (id, element_ref, element) = GuiElement::new(
             queue,
             self.dimensions,
             (image.width(), image.height(), image.into_raw()),
+            self.game_state.internal_update_sender.clone(),
         );
-        self.game_state.gui_elements.push(element_ref);
+        self.game_state.gui_elements.insert(id, element_ref);
 
         element
     }
@@ -98,9 +99,12 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
         let width = self.dimensions.2;
         let height = self.dimensions.3;
 
-        let mut data = vec![0; width as usize * height as usize * 4];
-
-        let mut image = image::RgbaImage::from_raw(width, height, data).unwrap();
+        let mut image = image::RgbaImage::from_raw(
+            width,
+            height,
+            vec![0; width as usize * height as usize * 4],
+        )
+        .unwrap();
 
         for x in 0..width {
             for y in 0..height {
@@ -161,9 +165,13 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
             }
         }
 
-        let (element_ref, element) =
-            GuiElement::new(queue, self.dimensions, (width, height, image.into_raw()));
-        self.game_state.gui_elements.push(element_ref);
+        let (id, element_ref, element) = GuiElement::new(
+            queue,
+            self.dimensions,
+            (width, height, image.into_raw()),
+            self.game_state.internal_update_sender.clone(),
+        );
+        self.game_state.gui_elements.insert(id, element_ref);
 
         element
     }

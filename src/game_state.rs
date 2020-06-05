@@ -1,6 +1,6 @@
 use crate::{
-    gui::{GuiElementBuilder, GuiElementRef},
-    model::{ModelBuilder, ModelData, ModelHandleMessage, SourceOrShape},
+    gui::{GuiElementBuilder, GuiElementData, GuiElementRef},
+    model::{InternalUpdateMessage, ModelBuilder, ModelData, SourceOrShape},
     render::LightState,
 };
 use cgmath::{Matrix4, SquareMatrix};
@@ -22,8 +22,8 @@ pub struct GameState {
     pub(crate) queue: Arc<Queue>,
     // models: Vec<Arc<Model>>,
     pub(crate) model_handles: HashMap<u64, Arc<RwLock<ModelData>>>,
-    pub(crate) model_handle_sender: Sender<ModelHandleMessage>,
-    pub(crate) gui_elements: Vec<GuiElementRef>,
+    pub(crate) internal_update_sender: Sender<InternalUpdateMessage>,
+    pub(crate) gui_elements: HashMap<u64, GuiElementRef>,
     pub(crate) is_running: bool,
     /// The matrix of the camera currently in use.
     ///
@@ -40,15 +40,15 @@ impl GameState {
     pub(crate) fn new(
         device: Arc<Device>,
         queue: Arc<Queue>,
-        sender: Sender<ModelHandleMessage>,
+        sender: Sender<InternalUpdateMessage>,
         surface: Arc<Surface<winit::window::Window>>,
     ) -> Self {
         Self {
             device,
             queue,
             model_handles: HashMap::new(),
-            model_handle_sender: sender,
-            gui_elements: Vec::new(),
+            internal_update_sender: sender,
+            gui_elements: HashMap::new(),
             is_running: true,
             // models: Vec::new(),
             camera: Matrix4::identity(),
@@ -66,6 +66,23 @@ impl GameState {
 
     pub(crate) fn remove_model_handle(&mut self, handle: u64) {
         self.model_handles.remove(&handle);
+    }
+
+    pub(crate) fn add_gui_element(
+        &mut self,
+        old_id: u64,
+        new_id: u64,
+        data: Arc<RwLock<GuiElementData>>,
+    ) {
+        let old = &self.gui_elements[&old_id];
+        let new = old.with_new_data(data);
+        self.gui_elements.insert(new_id, new);
+        println!("Added GUI element, now at {}", self.gui_elements.len());
+    }
+
+    pub(crate) fn remove_gui_element(&mut self, handle: u64) {
+        self.gui_elements.remove(&handle);
+        println!("Removed GUI element, {} left", self.gui_elements.len());
     }
 
     pub fn load_font(&mut self, font: impl AsRef<std::path::Path>) -> Font<'static> {

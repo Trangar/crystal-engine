@@ -7,7 +7,7 @@ pub(crate) mod render;
 pub use self::{
     builder::ModelBuilder,
     data::{ModelData, ModelDataGroup},
-    handle::{ModelHandle, ModelHandleMessage},
+    handle::{InternalUpdateMessage, ModelHandle},
     loader::SourceOrShape,
     render::{fs, vs},
 };

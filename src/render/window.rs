@@ -1,5 +1,5 @@
 use super::RenderPipeline;
-use crate::{model::ModelHandleMessage, Game, GameState};
+use crate::{model::InternalUpdateMessage, Game, GameState};
 use std::sync::mpsc::{channel, Receiver};
 use vulkano::{
     device::{Device, DeviceExtensions, Features},
@@ -21,7 +21,7 @@ pub struct Window<GAME: Game + 'static> {
     pipeline: RenderPipeline,
     events_loop: Option<EventLoop<()>>,
     game_state: GameState,
-    model_handle_receiver: Receiver<ModelHandleMessage>,
+    model_handle_receiver: Receiver<InternalUpdateMessage>,
     game: GAME,
     _dbg: Option<DebugCallback>,
 }
@@ -134,9 +134,15 @@ impl<GAME: Game + 'static> Window<GAME> {
 
         while let Ok(msg) = self.model_handle_receiver.try_recv() {
             match msg {
-                ModelHandleMessage::Dropped(id) => self.game_state.remove_model_handle(id),
-                ModelHandleMessage::NewClone(new_id, data) => {
+                InternalUpdateMessage::ModelDropped(id) => self.game_state.remove_model_handle(id),
+                InternalUpdateMessage::NewModel(new_id, data) => {
                     self.game_state.add_model_data(new_id, data)
+                }
+                InternalUpdateMessage::GuiElementDropped(id) => {
+                    self.game_state.remove_gui_element(id)
+                }
+                InternalUpdateMessage::NewGuiElement(old_id, new_id, data) => {
+                    self.game_state.add_gui_element(old_id, new_id, data)
                 }
             }
         }
@@ -147,7 +153,7 @@ impl<GAME: Game + 'static> Window<GAME> {
             self.game_state.camera,
             self.dimensions,
             self.game_state.model_handles.values(),
-            self.game_state.gui_elements.iter_mut(),
+            self.game_state.gui_elements.values_mut(),
             self.game_state.light.directional.to_shader_value(),
         );
         self.update();
