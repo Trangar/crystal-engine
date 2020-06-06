@@ -1,5 +1,5 @@
 use super::RenderPipeline;
-use crate::{model::InternalUpdateMessage, Game, GameState};
+use crate::{internal::UpdateMessage, Game, GameState};
 use std::sync::mpsc::{channel, Receiver};
 use vulkano::{
     device::{Device, DeviceExtensions, Features},
@@ -21,7 +21,7 @@ pub struct Window<GAME: Game + 'static> {
     pipeline: RenderPipeline,
     events_loop: Option<EventLoop<()>>,
     game_state: GameState,
-    model_handle_receiver: Receiver<InternalUpdateMessage>,
+    model_handle_receiver: Receiver<UpdateMessage>,
     game: GAME,
     _dbg: Option<DebugCallback>,
 }
@@ -133,18 +133,7 @@ impl<GAME: Game + 'static> Window<GAME> {
         self.game.update(&mut self.game_state);
 
         while let Ok(msg) = self.model_handle_receiver.try_recv() {
-            match msg {
-                InternalUpdateMessage::ModelDropped(id) => self.game_state.remove_model_handle(id),
-                InternalUpdateMessage::NewModel(new_id, data) => {
-                    self.game_state.add_model_data(new_id, data)
-                }
-                InternalUpdateMessage::GuiElementDropped(id) => {
-                    self.game_state.remove_gui_element(id)
-                }
-                InternalUpdateMessage::NewGuiElement(old_id, new_id, data) => {
-                    self.game_state.add_gui_element(old_id, new_id, data)
-                }
-            }
+            msg.apply(&mut self.game_state);
         }
     }
 

@@ -1,10 +1,10 @@
 use crate::{
-    gui::{GuiElementBuilder, GuiElementData, GuiElementRef},
-    model::{InternalUpdateMessage, ModelBuilder, ModelData, SourceOrShape},
+    gui::{GuiElementBuilder, GuiElementRef},
+    internal::UpdateMessage,
+    model::{ModelBuilder, ModelRef, SourceOrShape},
     render::LightState,
 };
 use cgmath::{Matrix4, SquareMatrix};
-use parking_lot::RwLock;
 use rusttype::Font;
 use std::{
     collections::{HashMap, HashSet},
@@ -20,8 +20,8 @@ use winit::event::VirtualKeyCode;
 pub struct GameState {
     pub(crate) device: Arc<Device>,
     pub(crate) queue: Arc<Queue>,
-    pub(crate) model_handles: HashMap<u64, Arc<RwLock<ModelData>>>,
-    pub(crate) internal_update_sender: Sender<InternalUpdateMessage>,
+    pub(crate) model_handles: HashMap<u64, ModelRef>,
+    pub(crate) internal_update_sender: Sender<UpdateMessage>,
     pub(crate) gui_elements: HashMap<u64, GuiElementRef>,
     pub(crate) is_running: bool,
     /// The matrix of the camera currently in use.
@@ -39,7 +39,7 @@ impl GameState {
     pub(crate) fn new(
         device: Arc<Device>,
         queue: Arc<Queue>,
-        sender: Sender<InternalUpdateMessage>,
+        sender: Sender<UpdateMessage>,
         surface: Arc<Surface<winit::window::Window>>,
     ) -> Self {
         Self {
@@ -56,29 +56,6 @@ impl GameState {
             light: LightState::new(),
             surface,
         }
-    }
-
-    pub(crate) fn add_model_data(&mut self, new_id: u64, handle: Arc<RwLock<ModelData>>) {
-        self.model_handles.insert(new_id, handle);
-    }
-
-    pub(crate) fn remove_model_handle(&mut self, handle: u64) {
-        self.model_handles.remove(&handle);
-    }
-
-    pub(crate) fn add_gui_element(
-        &mut self,
-        old_id: u64,
-        new_id: u64,
-        data: Arc<RwLock<GuiElementData>>,
-    ) {
-        let old = &self.gui_elements[&old_id];
-        let new = old.with_new_data(data);
-        self.gui_elements.insert(new_id, new);
-    }
-
-    pub(crate) fn remove_gui_element(&mut self, handle: u64) {
-        self.gui_elements.remove(&handle);
     }
 
     /// Load a font from the given relative path. This function will panic if the font does not exist.

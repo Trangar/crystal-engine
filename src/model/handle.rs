@@ -1,8 +1,14 @@
-use super::{Model, ModelData};
-use crate::gui::GuiElementData;
+use super::{Model, ModelData, ModelDataGroup};
+use crate::internal::UpdateMessage;
 use cgmath::{Euler, Rad, Vector3};
 use parking_lot::RwLock;
-use std::sync::{mpsc::Sender, Arc};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    mpsc::Sender,
+    Arc,
+};
+
+static ID: AtomicU64 = AtomicU64::new(1);
 
 /// A handle to the model that was loaded. This can be used to move the model around in the world.
 ///
@@ -10,26 +16,12 @@ use std::sync::{mpsc::Sender, Arc};
 ///
 /// When this handle is cloned, a second model will appear in the world. Both models can be controlled independently.
 pub struct ModelHandle {
-    message_handle: Sender<InternalUpdateMessage>,
+    id: u64,
+    message_handle: Sender<UpdateMessage>,
     data: Arc<RwLock<ModelData>>,
 }
 
 impl ModelHandle {
-    pub(crate) fn from_model(
-        model: Arc<Model>,
-        message_handle: Sender<InternalUpdateMessage>,
-    ) -> (Self, u64, Arc<RwLock<ModelData>>) {
-        let (id, data) = ModelData::new(model);
-        (
-            Self {
-                message_handle,
-                data: data.clone(),
-            },
-            id,
-            data,
-        )
-    }
-
     // TODO: Helper functions for:
     // - translate
     // - rotate_to
@@ -79,26 +71,30 @@ impl ModelHandle {
 
 impl Clone for ModelHandle {
     fn clone(&self) -> Self {
+        let new_id = ID.fetch_add(1, Ordering::Relaxed);
+        let message_handle = self.message_handle.clone();
         let data = self.data.read();
-        let model = data.model.clone();
-        let (new_handle, new_id, new_data) =
-            ModelHandle::from_model(model, self.message_handle.clone());
-
-        {
-            let mut new_data = new_data.write();
-            new_data.position = data.position;
-            new_data.rotation = data.rotation;
-            new_data.scale = data.scale;
-        }
+        let data = Arc::new(RwLock::new(ModelData {
+            position: data.position,
+            rotation: data.rotation,
+            scale: data.scale,
+            groups: data.groups.clone(),
+        }));
 
         // This sender only errors when the receiver is dropped
         // which should only happen when the game is shutting down
         // so we ignore the error
-        let _ = self
-            .message_handle
-            .send(InternalUpdateMessage::NewModel(new_id, new_data));
+        let _ = self.message_handle.send(UpdateMessage::NewModel {
+            old_id: self.id,
+            new_id,
+            data: data.clone(),
+        });
 
-        new_handle
+        ModelHandle {
+            id: new_id,
+            message_handle,
+            data,
+        }
     }
 }
 
@@ -109,13 +105,45 @@ impl Drop for ModelHandle {
         // so we ignore the error
         let _ = self
             .message_handle
-            .send(InternalUpdateMessage::ModelDropped(self.data.read().id));
+            .send(UpdateMessage::ModelDropped(self.id));
     }
 }
 
-pub enum InternalUpdateMessage {
-    NewModel(u64, Arc<RwLock<ModelData>>),
-    ModelDropped(u64),
-    NewGuiElement(u64, u64, Arc<RwLock<GuiElementData>>),
-    GuiElementDropped(u64),
+pub struct ModelRef {
+    pub model: Arc<Model>,
+    pub data: Arc<RwLock<ModelData>>,
+}
+
+impl ModelRef {
+    pub fn new(
+        model: Arc<Model>,
+        message_handle: Sender<UpdateMessage>,
+        mut data: ModelData,
+    ) -> (u64, ModelRef, ModelHandle) {
+        let id = ID.fetch_add(1, Ordering::Relaxed);
+        let groups = (0..model.groups.len())
+            .map(|_| ModelDataGroup::default())
+            .collect();
+
+        data.groups = groups;
+        let data = Arc::new(RwLock::new(data));
+        (
+            id,
+            ModelRef {
+                model,
+                data: data.clone(),
+            },
+            ModelHandle {
+                id,
+                data,
+                message_handle,
+            },
+        )
+    }
+    pub fn with_new_data(&self, data: Arc<RwLock<ModelData>>) -> Self {
+        ModelRef {
+            model: self.model.clone(),
+            data,
+        }
+    }
 }

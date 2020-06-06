@@ -1,5 +1,7 @@
-use super::{loader::SourceOrShape, Model, ModelGroup, ModelHandle};
-use crate::GameState;
+use super::{
+    handle::ModelRef, loader::SourceOrShape, Model, ModelDataGroup, ModelGroup, ModelHandle,
+};
+use crate::{GameState, ModelData};
 use cgmath::{Euler, Rad, Vector3, Zero};
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -117,21 +119,23 @@ impl<'a> ModelBuilder<'a> {
                 self.source_or_shape
             );
         }
+        let groups = (0..model.groups.len())
+            .map(|_| ModelDataGroup::default())
+            .collect();
 
-        let (handle, id, data) = ModelHandle::from_model(
+        let (id, model_ref, model_handle) = ModelRef::new(
             Arc::new(model),
             self.game_state.internal_update_sender.clone(),
+            ModelData {
+                position,
+                rotation,
+                scale,
+                groups,
+            },
         );
-        self.game_state.model_handles.insert(id, data);
+        self.game_state.model_handles.insert(id, model_ref);
 
-        // TODO: Immediately set this on the handle
-        handle.modify(|data| {
-            data.position = position;
-            data.rotation = rotation;
-            data.scale = scale;
-        });
-
-        handle
+        model_handle
     }
 }
 

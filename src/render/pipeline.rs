@@ -1,9 +1,8 @@
 use crate::{
     gui::{GuiElementRef, Pipeline as GuiPipeline},
-    model::{vs as model_vs, ModelData, Pipeline as ModelPipeline},
+    model::{vs as model_vs, ModelRef, Pipeline as ModelPipeline},
 };
 use cgmath::Matrix4;
-use parking_lot::RwLock;
 use std::sync::Arc;
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, DynamicState},
@@ -206,7 +205,7 @@ impl RenderPipeline {
         &mut self,
         camera: Matrix4<f32>,
         dimensions: [f32; 2],
-        models: impl Iterator<Item = &'a Arc<RwLock<ModelData>>>,
+        models: impl Iterator<Item = &'a ModelRef>,
         gui_elements: impl Iterator<Item = &'a mut GuiElementRef>,
         directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
     ) -> Option<FenceSignalFuture<Box<dyn GpuFuture>>> {

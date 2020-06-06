@@ -1,7 +1,5 @@
-use super::{Material, Vertex};
-use crate::ModelData;
+use super::{handle::ModelRef, Material, Vertex};
 use cgmath::{Matrix4, Rad, Zero};
-use parking_lot::RwLock;
 use std::{mem, sync::Arc};
 use vulkano::{
     buffer::CpuBufferPool,
@@ -77,7 +75,7 @@ impl Pipeline {
     pub fn render<'a>(
         &mut self,
         future: &mut Box<dyn GpuFuture>,
-        models: impl Iterator<Item = &'a Arc<RwLock<ModelData>>>,
+        models: impl Iterator<Item = &'a ModelRef>,
         command_buffer_builder: &mut AutoCommandBufferBuilder,
         dimensions: [f32; 2],
         camera: Matrix4<f32>,
@@ -98,10 +96,10 @@ impl Pipeline {
 
         let mut data = default_uniform(camera, proj, directional_lights);
 
-        for handle in models {
-            let handle = handle.read();
-            let model = &handle.model;
-            let base_matrix = handle.matrix();
+        for model in models {
+            let model_data = model.data.read();
+            let model = &model.model;
+            let base_matrix = model_data.matrix();
 
             if !model.texture_future.read().is_empty() {
                 let texture_futures = mem::replace(&mut *model.texture_future.write(), Vec::new());
@@ -112,7 +110,7 @@ impl Pipeline {
             }
             let layout = self.pipeline.descriptor_set_layout(0).unwrap();
 
-            for (group, group_data) in model.groups.iter().zip(handle.groups.iter()) {
+            for (group, group_data) in model.groups.iter().zip(model_data.groups.iter()) {
                 let texture = group
                     .texture
                     .as_ref()

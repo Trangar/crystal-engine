@@ -68,6 +68,7 @@
 
 mod game_state;
 mod gui;
+mod internal;
 mod model;
 mod render;
 

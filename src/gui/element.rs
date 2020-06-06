@@ -1,4 +1,4 @@
-use crate::model::InternalUpdateMessage;
+use crate::internal::UpdateMessage;
 use parking_lot::RwLock;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
@@ -19,7 +19,7 @@ pub struct GuiElementRef {
 }
 
 impl GuiElementRef {
-    pub(crate) fn with_new_data(&self, new_data: Arc<RwLock<GuiElementData>>) -> GuiElementRef {
+    pub fn with_new_data(&self, new_data: Arc<RwLock<GuiElementData>>) -> GuiElementRef {
         GuiElementRef {
             data: new_data,
             texture: self.texture.clone(),
@@ -36,14 +36,6 @@ pub struct GuiElementData {
     pub dimensions: (i32, i32, u32, u32),
 }
 
-impl GuiElementData {
-    pub(crate) fn from_old(old: &Self) -> Self {
-        Self {
-            dimensions: old.dimensions,
-        }
-    }
-}
-
 /// A reference to a GUI element on the screen.
 ///
 /// This reference can be [Clone]d to create a second element on the screen with the exact same parameters that were used to create this.
@@ -52,7 +44,7 @@ impl GuiElementData {
 pub struct GuiElement {
     id: u64,
     data: Arc<RwLock<GuiElementData>>,
-    internal_update: Sender<InternalUpdateMessage>,
+    internal_update: Sender<UpdateMessage>,
 }
 
 static ID: AtomicU64 = AtomicU64::new(0);
@@ -61,15 +53,16 @@ impl Clone for GuiElement {
     fn clone(&self) -> Self {
         let old_id = self.id;
         let new_id = ID.fetch_add(1, Ordering::Relaxed);
-        let current_data = self.data.read();
-        let data = Arc::new(RwLock::new(GuiElementData::from_old(&*current_data)));
-        let _ = self
-            .internal_update
-            .send(InternalUpdateMessage::NewGuiElement(
-                old_id,
-                new_id,
-                data.clone(),
-            ));
+        let data = self.data.read();
+        let data = Arc::new(RwLock::new(GuiElementData {
+            dimensions: data.dimensions,
+        }));
+
+        let _ = self.internal_update.send(UpdateMessage::NewGuiElement {
+            old_id,
+            new_id,
+            data: data.clone(),
+        });
         Self {
             id: new_id,
             data,
@@ -82,7 +75,7 @@ impl Drop for GuiElement {
     fn drop(&mut self) {
         let _ = self
             .internal_update
-            .send(InternalUpdateMessage::GuiElementDropped(self.id));
+            .send(UpdateMessage::GuiElementDropped(self.id));
     }
 }
 
@@ -91,7 +84,7 @@ impl GuiElement {
         queue: Arc<Queue>,
         dimensions: (i32, i32, u32, u32),
         image_data: (u32, u32, Vec<u8>),
-        internal_update: Sender<InternalUpdateMessage>,
+        internal_update: Sender<UpdateMessage>,
     ) -> (u64, GuiElementRef, GuiElement) {
         let id = ID.fetch_add(1, Ordering::Relaxed);
 

@@ -7,7 +7,7 @@ mod pipeline;
 pub use self::{
     builder::ModelBuilder,
     data::{ModelData, ModelDataGroup},
-    handle::{InternalUpdateMessage, ModelHandle},
+    handle::{ModelHandle, ModelRef},
     loader::SourceOrShape,
     pipeline::{vs, Pipeline},
 };
