@@ -20,7 +20,6 @@ use winit::event::VirtualKeyCode;
 pub struct GameState {
     pub(crate) device: Arc<Device>,
     pub(crate) queue: Arc<Queue>,
-    // models: Vec<Arc<Model>>,
     pub(crate) model_handles: HashMap<u64, Arc<RwLock<ModelData>>>,
     pub(crate) internal_update_sender: Sender<InternalUpdateMessage>,
     pub(crate) gui_elements: HashMap<u64, GuiElementRef>,
@@ -50,7 +49,6 @@ impl GameState {
             internal_update_sender: sender,
             gui_elements: HashMap::new(),
             is_running: true,
-            // models: Vec::new(),
             camera: Matrix4::identity(),
             keyboard: KeyboardState {
                 pressed: HashSet::default(),
@@ -77,12 +75,10 @@ impl GameState {
         let old = &self.gui_elements[&old_id];
         let new = old.with_new_data(data);
         self.gui_elements.insert(new_id, new);
-        println!("Added GUI element, now at {}", self.gui_elements.len());
     }
 
     pub(crate) fn remove_gui_element(&mut self, handle: u64) {
         self.gui_elements.remove(&handle);
-        println!("Removed GUI element, {} left", self.gui_elements.len());
     }
 
     /// Load a font from the given relative path. This function will panic if the font does not exist.

@@ -132,7 +132,7 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
 
         for x in 0..width {
             for y in 0..height {
-                let ps = if let Some(border_color) = is_border(x, y, width, height, &self.border) {
+                let ps = if let Some(border_color) = is_border(x, y, width, height, self.border) {
                     border_color
                 } else {
                     self.color
@@ -232,16 +232,16 @@ fn is_border(
     y: u32,
     width: u32,
     height: u32,
-    maybe_border: &Option<(u16, [u8; 4])>,
+    maybe_border: Option<(u16, [u8; 4])>,
 ) -> Option<[u8; 4]> {
     if let Some((border_width, border_color)) = maybe_border {
-        let border_width = *border_width as u32;
+        let border_width = border_width as u32;
         if x < border_width
             || x + border_width >= width
             || y < border_width
             || y + border_width >= height
         {
-            return Some(*border_color);
+            return Some(border_color);
         }
     }
     None

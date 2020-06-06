@@ -2,14 +2,14 @@ mod builder;
 mod data;
 mod handle;
 mod loader;
-pub(crate) mod render;
+mod pipeline;
 
 pub use self::{
     builder::ModelBuilder,
     data::{ModelData, ModelDataGroup},
     handle::{InternalUpdateMessage, ModelHandle},
     loader::SourceOrShape,
-    render::{fs, vs},
+    pipeline::{vs, Pipeline},
 };
 
 use loader::{ParsedModelPart, ParsedTexture};

@@ -1,48 +1,39 @@
 use crate::{
     gui::{GuiElementRef, Pipeline as GuiPipeline},
-    model::{fs as model_fs, vs as model_vs, ModelData, Vertex as ModelVertex},
+    model::{vs as model_vs, ModelData, Pipeline as ModelPipeline},
 };
-use cgmath::{Matrix4, Rad, Zero};
+use cgmath::Matrix4;
 use parking_lot::RwLock;
-use std::{mem, sync::Arc};
+use std::sync::Arc;
 use vulkano::{
-    buffer::CpuBufferPool,
-    command_buffer::{
-        AutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferExecFuture, DynamicState,
-    },
+    command_buffer::{AutoCommandBufferBuilder, DynamicState},
     descriptor::descriptor_set::StdDescriptorPool,
     device::{Device, Queue},
-    format::{Format, R8G8B8A8Srgb},
-    framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract, Subpass},
-    image::{attachment::AttachmentImage, Dimensions, ImmutableImage, SwapchainImage},
+    format::Format,
+    framebuffer::{Framebuffer, FramebufferAbstract, RenderPassAbstract},
+    image::{attachment::AttachmentImage, SwapchainImage},
     instance::PhysicalDevice,
-    pipeline::{viewport::Viewport, GraphicsPipeline, GraphicsPipelineAbstract},
-    sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode},
+    pipeline::viewport::Viewport,
     swapchain::{
         AcquireError, ColorSpace, FullscreenExclusive, PresentMode, Surface, SurfaceTransform,
         Swapchain, SwapchainAcquireFuture, SwapchainCreationError,
     },
-    sync::{FenceSignalFuture, FlushError, GpuFuture, NowFuture},
+    sync::{FenceSignalFuture, FlushError, GpuFuture},
 };
 
 pub struct RenderPipeline {
-    pub(crate) device: Arc<Device>,
+    device: Arc<Device>,
     queue: Arc<Queue>,
     dimensions: [f32; 2],
-    pub(crate) world_pipeline: Arc<dyn GraphicsPipelineAbstract + Send + Sync>,
-    pub(crate) dynamic_state: DynamicState,
+    dynamic_state: DynamicState,
     framebuffers: Vec<Arc<dyn FramebufferAbstract + Send + Sync>>,
-    pub(crate) empty_texture: Arc<ImmutableImage<R8G8B8A8Srgb>>,
-    pub(crate) render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
-    pub(crate) world_uniform_buffer: CpuBufferPool<model_vs::ty::Data>,
+    render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     swapchain: Arc<Swapchain<winit::window::Window>>,
     swapchain_images: Vec<Arc<SwapchainImage<winit::window::Window>>>,
     swapchain_needs_refresh: bool,
-    pub(crate) sampler: Arc<Sampler>,
-    next_frame_futures: Vec<Box<dyn GpuFuture>>,
 
-    pub(crate) descriptor_pool: Arc<StdDescriptorPool>,
-
+    descriptor_pool: Arc<StdDescriptorPool>,
+    model_pipeline: ModelPipeline,
     gui_pipeline: GuiPipeline,
 }
 
@@ -82,30 +73,9 @@ impl RenderPipeline {
 
         let mut dynamic_state = DynamicState::none();
 
-        let vs = model_vs::Shader::load(device.clone()).expect("failed to create shader module");
-        let fs = model_fs::Shader::load(device.clone()).expect("failed to create shader module");
-
-        let world_pipeline = Arc::new(
-            GraphicsPipeline::start()
-                .vertex_input_single_buffer::<ModelVertex>()
-                .vertex_shader(vs.main_entry_point(), ())
-                .viewports_dynamic_scissors_irrelevant(1)
-                .fragment_shader(fs.main_entry_point(), ())
-                .cull_mode_back()
-                .blend_alpha_blending()
-                .depth_stencil_simple_depth()
-                .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-                .build(device.clone())
-                .unwrap(),
-        );
-
-        let world_uniform_buffer =
-            CpuBufferPool::<model_vs::ty::Data>::uniform_buffer(device.clone());
-
         let usage = caps.supported_usage_flags;
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         let format = caps.supported_formats[0].0;
-        println!("build_swapchain with dimensions {:?}", dimensions);
 
         let (swapchain, swapchain_images) = Swapchain::new(
             device.clone(),
@@ -132,42 +102,24 @@ impl RenderPipeline {
             &mut dynamic_state,
         );
 
-        let sampler = Sampler::new(
-            device.clone(),
-            Filter::Linear,
-            Filter::Linear,
-            MipmapMode::Nearest,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-        )
-        .unwrap();
-
-        let (empty_texture, fut) = generate_empty_texture(queue.clone(), [255, 0, 0, 255]);
         let descriptor_pool = Arc::new(StdDescriptorPool::new(device.clone()));
 
+        let model_pipeline =
+            ModelPipeline::create(device.clone(), queue.clone(), render_pass.clone());
         let gui_pipeline = GuiPipeline::create(device.clone(), render_pass.clone());
         Self {
             device,
             queue,
-            world_pipeline,
             gui_pipeline,
             dynamic_state,
             framebuffers,
             render_pass,
-            world_uniform_buffer,
             swapchain,
             swapchain_images,
             swapchain_needs_refresh: false,
             dimensions,
-            empty_texture,
-            sampler,
-            next_frame_futures: vec![fut.boxed()],
             descriptor_pool,
+            model_pipeline,
         }
     }
 
@@ -276,33 +228,19 @@ impl RenderPipeline {
             )
             .unwrap();
 
-        let proj = cgmath::perspective(
-            Rad(std::f32::consts::FRAC_PI_2),
-            dimensions[0] / dimensions[1],
-            0.01,
-            100.0,
-        );
-        let mut data = default_uniform(camera, proj, directional_lights);
-
         // Build a list of futures that need to be processed before this frame is drawn
         let mut start_future = acquire_future.boxed();
-        // Drain the futures that were queued from last frame
-        for fut in mem::replace(&mut self.next_frame_futures, Vec::new()) {
-            start_future = start_future.join(fut).boxed();
-        }
 
-        for handle in models {
-            let handle = handle.read();
-
-            handle.model.render(
-                &mut start_future,
-                &handle.groups,
-                handle.matrix(),
-                &mut data,
-                &mut command_buffer_builder,
-                self,
-            );
-        }
+        self.model_pipeline.render(
+            &mut start_future,
+            models,
+            &mut command_buffer_builder,
+            dimensions,
+            camera,
+            directional_lights,
+            &self.dynamic_state,
+            &mut self.descriptor_pool,
+        );
 
         for element in gui_elements {
             self.gui_pipeline.render_element(
@@ -344,52 +282,4 @@ impl RenderPipeline {
             future.wait(None).unwrap();
         }
     }
-}
-
-fn default_uniform(
-    camera: Matrix4<f32>,
-    proj: Matrix4<f32>,
-    directional_lights: (i32, [model_vs::ty::DirectionalLight; 100]),
-) -> model_vs::ty::Data {
-    let camera_pos = -camera.z.truncate();
-
-    model_vs::ty::Data {
-        world: Matrix4::zero().into(),
-        view: camera.into(),
-        proj: proj.into(),
-        lights: directional_lights.1,
-        lightCount: directional_lights.0,
-
-        camera_x: camera_pos.x,
-        camera_y: camera_pos.y,
-        camera_z: camera_pos.z,
-        material_ambient_r: 0.0,
-        material_ambient_g: 0.0,
-        material_ambient_b: 0.0,
-        material_diffuse_r: 0.0,
-        material_diffuse_g: 0.0,
-        material_diffuse_b: 0.0,
-        material_specular_r: 0.0,
-        material_specular_g: 0.0,
-        material_specular_b: 0.0,
-        material_shininess: 0.0,
-    }
-}
-fn generate_empty_texture(
-    queue: Arc<Queue>,
-    color: [u8; 4],
-) -> (
-    Arc<ImmutableImage<R8G8B8A8Srgb>>,
-    CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
-) {
-    ImmutableImage::from_iter(
-        color.iter().cloned(),
-        Dimensions::Dim2d {
-            width: 1,
-            height: 1,
-        },
-        R8G8B8A8Srgb,
-        queue,
-    )
-    .unwrap()
 }
