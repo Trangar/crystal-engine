@@ -4,10 +4,13 @@ use genmesh::EmitTriangles;
 use obj::ObjMaterial;
 use std::sync::Arc;
 
+/// Errors that can occur when loading an .obj file
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    /// Could not load an .obj file
     #[error("Could not load object from file: {0:?}")]
     CouldNotLoadObj(obj::ObjError),
+    /// Could not load the .obj's materials
     #[error("Could not load materials: {0:?}")]
     CouldNotLoadMaterials(obj::MtlLibsLoadError),
 }

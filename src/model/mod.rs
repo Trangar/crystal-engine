@@ -12,6 +12,12 @@ pub use self::{
     pipeline::{vs, Pipeline},
 };
 
+#[cfg(feature = "format-fbx")]
+pub use self::loader::fbx::Error as FbxError;
+
+#[cfg(feature = "format-obj")]
+pub use self::loader::obj::Error as ObjError;
+
 use loader::{ParsedModelPart, ParsedTexture};
 use parking_lot::RwLock;
 use std::sync::Arc;

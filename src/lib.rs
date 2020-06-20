@@ -90,7 +90,7 @@ pub use rusttype::Font;
 /// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.
 pub mod state {
     pub use crate::{
-        error::{GuiError, InitError, ModelError},
+        error::*,
         game_state::KeyboardState,
         gui::{
             GuiElementBuilder, GuiElementCanvasBuilder, GuiElementData, GuiElementTextureBuilder,

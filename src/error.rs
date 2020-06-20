@@ -1,3 +1,8 @@
+#[cfg(feature = "format-fbx")]
+pub use crate::model::FbxError;
+#[cfg(feature = "format-obj")]
+pub use crate::model::ObjError;
+
 use thiserror::Error;
 
 /// Errors generated when loading a model
@@ -21,14 +26,14 @@ pub enum ModelError {
     /// This error can only be thrown if the `format-obj` feature is enabled
     #[cfg(feature = "format-obj")]
     #[error("Could not load OBJ model: {0:?}")]
-    Obj(crate::model::loader::obj::Error),
+    Obj(ObjError),
 
     /// The error that was thrown whilst loading an .fbx file.
     ///
     /// This error can only be thrown if the `format-fbx` feature is enabled
     #[cfg(feature = "format-fbx")]
     #[error("Could not load FBX model: {0:?}")]
-    Fbx(crate::model::loader::fbx::Error),
+    Fbx(FbxError),
 }
 
 /// Errors generated when creating GUI elements
