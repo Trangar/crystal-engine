@@ -1,5 +1,5 @@
 use super::GuiElement;
-use crate::GameState;
+use crate::{error::GuiError, GameState};
 use image::Pixel;
 use rusttype::Font;
 use std::borrow::Cow;
@@ -54,19 +54,24 @@ impl<'a, 'b> GuiElementTextureBuilder<'a, 'b> {
     /// Finish building the element and return it.
     /// The returned [GuiElement] has to be stored somewhere, as it will be removed from the engine when dropped.
     /// Starting next frame, the returned GuiElement will be rendered on the screen.
-    pub fn build(self) -> GuiElement {
+    pub fn build(self) -> Result<GuiElement, GuiError> {
         let queue = self.game_state.queue.clone();
-        let image = image::open(self.texture_path).unwrap().to_rgba();
+        let image = image::open(self.texture_path)
+            .map_err(|e| GuiError::CouldNotLoadTexture {
+                path: self.texture_path.to_owned(),
+                inner: e,
+            })?
+            .to_rgba();
 
         let (id, element_ref, element) = GuiElement::new(
             queue,
             self.dimensions,
             (image.width(), image.height(), image.into_raw()),
             self.game_state.internal_update_sender.clone(),
-        );
+        )?;
         self.game_state.gui_elements.insert(id, element_ref);
 
-        element
+        Ok(element)
     }
 }
 /// A struct that is used to render a custom texture for a [GuiElement]. This can be further customized by e.g. `.with_text` and `with_border`.
@@ -117,7 +122,7 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
     /// Finish building the element and return it.
     /// The returned [GuiElement] has to be stored somewhere, as it will be removed from the engine when dropped.
     /// Starting next frame, the returned GuiElement will be rendered on the screen.
-    pub fn build(self) -> GuiElement {
+    pub fn build(self) -> Result<GuiElement, GuiError> {
         let queue = self.game_state.queue.clone();
 
         let width = self.dimensions.2;
@@ -128,6 +133,9 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
             height,
             vec![0; width as usize * height as usize * 4],
         )
+        // only returns `None` if the given buffer isn't big enough for the requested dimensions.
+        // Rgba is 4 bytes, and the dimensions are width * height, so the buffer should always be
+        // big enough.
         .unwrap();
 
         for x in 0..width {
@@ -194,10 +202,10 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
             self.dimensions,
             (width, height, image.into_raw()),
             self.game_state.internal_update_sender.clone(),
-        );
+        )?;
         self.game_state.gui_elements.insert(id, element_ref);
 
-        element
+        Ok(element)
     }
 }
 

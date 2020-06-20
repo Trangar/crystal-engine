@@ -8,7 +8,7 @@
 //!
 //! fn main() {
 //!     // Create a new instance of your game and run it
-//!     let window = Window::<Game>::new(800., 600.);
+//!     let window = Window::<Game>::new(800., 600.).unwrap();
 //!     window.run();
 //! }
 //!
@@ -28,7 +28,8 @@
 //!         let model = state.new_obj_model("assets/some_object.obj")
 //!             .with_position((0.0, -3.0, 0.0))
 //!             .with_scale(0.3)
-//!             .build();
+//!             .build()
+//!             .unwrap();
 //!
 //!#        #[cfg(not(feature = "format-obj"))]
 //!#        let model: ModelHandle = unsafe { std::mem::zeroed() };
@@ -65,7 +66,10 @@
 //! ```
 
 #![warn(missing_docs)]
+#![allow(clippy::needless_doctest_main)]
+#![allow(clippy::borrowed_box)] // There are two incorrect suggestions for this lint: https://github.com/rust-lang/rust-clippy/issues/3971
 
+mod error;
 mod game_state;
 mod gui;
 mod internal;
@@ -75,19 +79,23 @@ mod render;
 pub use self::{
     game_state::GameState,
     gui::GuiElement,
-    model::{ModelData, ModelHandle},
-    render::{DirectionalLight, LightColor, PointLight, PointLightAttenuation, Window},
+    model::{ModelBuilder, ModelData, ModelHandle},
+    render::{
+        lights::{DirectionalLight, LightColor, PointLight, PointLightAttenuation},
+        window::Window,
+    },
 };
 pub use rusttype::Font;
 
 /// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.
 pub mod state {
     pub use crate::{
+        error::*,
         game_state::KeyboardState,
         gui::{
             GuiElementBuilder, GuiElementCanvasBuilder, GuiElementData, GuiElementTextureBuilder,
         },
-        render::{FixedVec, LightState},
+        render::lights::{FixedVec, LightState},
     };
 }
 

@@ -1,7 +1,7 @@
 use super::{
     handle::ModelRef, loader::SourceOrShape, Model, ModelDataGroup, ModelGroup, ModelHandle,
 };
-use crate::{GameState, ModelData};
+use crate::{error::ModelError, GameState, ModelData};
 use cgmath::{Euler, Rad, Vector3, Zero};
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -14,6 +14,7 @@ use vulkano::{
     sync::{GpuFuture, NowFuture},
 };
 
+/// A builder that is used to configure a model being loaded
 pub struct ModelBuilder<'a> {
     game_state: &'a mut GameState,
     source_or_shape: SourceOrShape<'a>,
@@ -37,38 +38,48 @@ impl<'a> ModelBuilder<'a> {
         }
     }
 
+    /// Set the fallback color of the model in case the model has no texture
     pub fn with_fallback_color(mut self, color: impl Into<Vector3<f32>>) -> Self {
         self.fallback_color = Some(color.into());
         self
     }
+
+    /// Set the texture to be used in this model
     pub fn with_texture_from_file(mut self, texture_src: &'a str) -> Self {
         self.texture = Some(texture_src);
         self
     }
+
+    /// Set the initial position of the model
     pub fn with_position(mut self, position: impl Into<Vector3<f32>>) -> Self {
         self.position = position.into();
         self
     }
+
+    /// Set the initial rotation of the model
     pub fn with_rotation(mut self, rotation: Euler<Rad<f32>>) -> Self {
         self.rotation = rotation;
         self
     }
+
+    /// Set the initial scale of the model
     pub fn with_scale(mut self, scale: f32) -> Self {
         self.scale = scale;
         self
     }
 
-    pub fn build(self) -> ModelHandle {
+    /// Finish configuring the model and try to load it.
+    pub fn build(self) -> Result<ModelHandle, ModelError> {
         let position = self.position;
         let rotation = self.rotation;
         let scale = self.scale;
 
-        let source = self.source_or_shape.parse();
+        let source = self.source_or_shape.parse()?;
         let device = self.game_state.device.clone();
         let queue = self.game_state.queue.clone();
 
         let (tex, mut futures) = if let Some(texture) = self.texture {
-            let (tex, tex_future) = load_texture(self.game_state.queue.clone(), texture);
+            let (tex, tex_future) = load_texture(self.game_state.queue.clone(), texture)?;
             (Some(tex), vec![tex_future.boxed()])
         } else {
             (None, Vec::new())
@@ -110,15 +121,11 @@ impl<'a> ModelBuilder<'a> {
             groups,
             texture_future: RwLock::new(futures),
         };
-        if cfg!(debug_assertions)
-            && model.vertex_buffer.is_none()
-            && model.groups.iter().all(|g| g.vertex_buffer.is_none())
-        {
-            panic!(
-                "Model {:?} has no valid vertex buffer",
-                self.source_or_shape
-            );
+
+        if model.vertex_buffer.is_none() && model.groups.iter().all(|g| g.vertex_buffer.is_none()) {
+            return Err(ModelError::InvalidModelVertexBuffer);
         }
+
         let groups = (0..model.groups.len())
             .map(|_| ModelDataGroup::default())
             .collect();
@@ -135,28 +142,34 @@ impl<'a> ModelBuilder<'a> {
         );
         self.game_state.model_handles.insert(id, model_ref);
 
-        model_handle
+        Ok(model_handle)
     }
 }
 
-fn load_texture(
-    queue: Arc<Queue>,
-    path: &str,
-) -> (
+type LoadedTexture = (
     Arc<ImmutableImage<R8G8B8A8Srgb>>,
     CommandBufferExecFuture<NowFuture, AutoCommandBuffer>,
-) {
-    let image = image::open(path).unwrap().to_rgba();
+);
+
+fn load_texture(queue: Arc<Queue>, path: &str) -> Result<LoadedTexture, ModelError> {
+    let image = image::open(path)
+        .map_err(|inner| ModelError::CouldNotLoadTexture {
+            path: path.to_owned(),
+            inner,
+        })?
+        .to_rgba();
     let dimensions = Dimensions::Dim2d {
         width: image.width(),
         height: image.height(),
     };
 
-    ImmutableImage::from_iter(
+    Ok(ImmutableImage::from_iter(
         image.into_raw().into_iter(),
         dimensions,
         R8G8B8A8Srgb,
         queue,
     )
-    .unwrap()
+    // Should never fail because the image is in the correct format, the dimensions
+    // match and the queue is assumed to be valid
+    .unwrap())
 }

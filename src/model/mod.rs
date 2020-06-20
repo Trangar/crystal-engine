@@ -1,7 +1,7 @@
 mod builder;
 mod data;
 mod handle;
-mod loader;
+pub mod loader;
 mod pipeline;
 
 pub use self::{
@@ -11,6 +11,12 @@ pub use self::{
     loader::SourceOrShape,
     pipeline::{vs, Pipeline},
 };
+
+#[cfg(feature = "format-fbx")]
+pub use self::loader::fbx::Error as FbxError;
+
+#[cfg(feature = "format-obj")]
+pub use self::loader::obj::Error as ObjError;
 
 use loader::{ParsedModelPart, ParsedTexture};
 use parking_lot::RwLock;
@@ -53,19 +59,17 @@ impl ModelGroup {
         texture: &Option<Arc<ImmutableImage<R8G8B8A8Srgb>>>,
         part: ParsedModelPart,
     ) -> (Self, Option<Box<dyn GpuFuture>>) {
-        let index = Some(
-            CpuAccessibleBuffer::from_iter(
-                device.clone(),
-                BufferUsage::all(),
-                false,
-                part.index.iter().copied(),
-            )
-            .unwrap(),
-        );
+        let index = CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            BufferUsage::all(),
+            false,
+            part.index.iter().copied(),
+        )
+        .ok();
 
         let vertex_buffer = part.vertices.map(|v| {
             CpuAccessibleBuffer::from_iter(device, BufferUsage::all(), false, v.iter().copied())
-                .unwrap()
+                .unwrap() // We assume that device and v are valid, so this should never fail
         });
 
         let (texture, future) = if let Some(texture_to_load) = part.texture {
@@ -80,7 +84,7 @@ impl ModelGroup {
                 R8G8B8A8Srgb,
                 queue,
             )
-            .unwrap();
+            .unwrap(); // We assume that queue, rgba_data and width/height are valid, so this should never fail
             (Some(tex), Some(Box::new(fut) as Box<dyn GpuFuture>))
         } else {
             (texture.clone(), None)

@@ -1,4 +1,4 @@
-use crate::internal::UpdateMessage;
+use crate::{error::GuiError, internal::UpdateMessage};
 use parking_lot::RwLock;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
@@ -85,7 +85,7 @@ impl GuiElement {
         dimensions: (i32, i32, u32, u32),
         image_data: (u32, u32, Vec<u8>),
         internal_update: Sender<UpdateMessage>,
-    ) -> (u64, GuiElementRef, GuiElement) {
+    ) -> Result<(u64, GuiElementRef, GuiElement), GuiError> {
         let id = ID.fetch_add(1, Ordering::Relaxed);
 
         let (width, height, data) = image_data;
@@ -95,11 +95,11 @@ impl GuiElement {
             R8G8B8A8Srgb,
             queue,
         )
-        .unwrap();
+        .map_err(|inner| GuiError::CouldNotCreateTexture { inner })?;
 
         let data = Arc::new(RwLock::new(GuiElementData { dimensions }));
 
-        (
+        Ok((
             id,
             GuiElementRef {
                 data: Arc::clone(&data),
@@ -111,7 +111,7 @@ impl GuiElement {
                 data,
                 internal_update,
             },
-        )
+        ))
     }
 
     /// Modify the current GuiElement.

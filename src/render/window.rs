@@ -1,5 +1,5 @@
-use super::RenderPipeline;
-use crate::{internal::UpdateMessage, Game, GameState};
+use super::pipeline::RenderPipeline;
+use crate::{internal::UpdateMessage, state::InitError, Game, GameState};
 use std::sync::mpsc::{channel, Receiver};
 use vulkano::{
     device::{Device, DeviceExtensions, Features},
@@ -17,9 +17,13 @@ use winit::{
 
 /// A handle to the window and the game state. This will be your main entrypoint of the game.
 pub struct Window<GAME: Game + 'static> {
-    dimensions: [f32; 2],
     pipeline: RenderPipeline,
-    events_loop: Option<EventLoop<()>>,
+    events_loop: EventLoop<()>,
+    state: WindowState<GAME>,
+}
+
+struct WindowState<GAME: Game + 'static> {
+    dimensions: [f32; 2],
     game_state: GameState,
     model_handle_receiver: Receiver<UpdateMessage>,
     game: GAME,
@@ -42,13 +46,13 @@ fn msg_severity(s: MessageSeverity) -> char {
 
 impl<GAME: Game + 'static> Window<GAME> {
     /// Create a new instance of the window. This will immediately instantiate an instance of [Game].
-    pub fn new(width: f32, height: f32) -> Self {
+    pub fn new(width: f32, height: f32) -> Result<Self, InitError> {
         let instance = {
             let extensions = InstanceExtensions {
                 ext_debug_utils: true,
                 ..vulkano_win::required_extensions()
             };
-            Instance::new(None, &extensions, None).expect("failed to create Vulkan instance")
+            Instance::new(None, &extensions, None).map_err(InitError::CouldNotInitVulkano)?
         };
 
         let _dbg = if cfg!(debug_assertions) {
@@ -69,7 +73,7 @@ impl<GAME: Game + 'static> Window<GAME> {
                     device
                         .queue_families()
                         .find(|q| q.supports_graphics())
-                        .unwrap(),
+                        .ok_or(InitError::CouldNotFindValidGraphicsQueue)?,
                 );
                 true
             } else {
@@ -77,8 +81,8 @@ impl<GAME: Game + 'static> Window<GAME> {
             };
             print_physical_device_info(&device, picked, if picked { queue_family } else { None });
         }
-        let physical = physical.expect("no device available");
-        let queue_family = queue_family.expect("Couldn't find a graphical queue family");
+        let physical = physical.ok_or(InitError::CouldNotFindPhysicalDevice)?;
+        let queue_family = queue_family.ok_or(InitError::CouldNotFindValidGraphicsQueue)?;
 
         let (device, queue) = {
             let (device, mut queues) = Device::new(
@@ -91,13 +95,18 @@ impl<GAME: Game + 'static> Window<GAME> {
                 },
                 [(queue_family, 0.5)].iter().cloned(),
             )
-            .expect("Could not create device");
-            (device, queues.next().unwrap())
+            .map_err(InitError::CouldNotCreateDevice)?;
+            (
+                device,
+                queues
+                    .next()
+                    .ok_or(InitError::CouldNotFindValidGraphicsQueue)?,
+            )
         };
         let events_loop = EventLoop::new();
         let surface = WindowBuilder::new()
             .build_vk_surface(&events_loop, instance.clone())
-            .unwrap();
+            .map_err(InitError::CouldNotCreateWindow)?;
 
         let pipeline = RenderPipeline::create(
             device.clone(),
@@ -105,7 +114,7 @@ impl<GAME: Game + 'static> Window<GAME> {
             surface.clone(),
             physical,
             [width, height],
-        );
+        )?;
 
         let (sender, receiver) = channel();
 
@@ -113,90 +122,96 @@ impl<GAME: Game + 'static> Window<GAME> {
 
         let game = GAME::init(&mut game_state);
 
-        Window {
-            dimensions: [width, height],
+        Ok(Window {
             pipeline,
-            events_loop: Some(events_loop),
-            model_handle_receiver: receiver,
-            game_state,
-            game,
-            _dbg,
-        }
-    }
-
-    pub(crate) fn update_size(&mut self, width: f32, height: f32) {
-        self.dimensions = [width, height];
-        self.pipeline.resize(self.dimensions);
-    }
-
-    fn update(&mut self) {
-        self.game.update(&mut self.game_state);
-
-        while let Ok(msg) = self.model_handle_receiver.try_recv() {
-            msg.apply(&mut self.game_state);
-        }
-    }
-
-    fn render_and_update(&mut self) {
-        let future = self.pipeline.render(
-            self.game_state.camera,
-            self.dimensions,
-            self.game_state.model_handles.values(),
-            self.game_state.gui_elements.values_mut(),
-            self.game_state.light.directional.to_shader_value(),
-        );
-        self.update();
-        self.pipeline.finish_render(future);
+            events_loop,
+            state: WindowState {
+                dimensions: [width, height],
+                model_handle_receiver: receiver,
+                game_state,
+                game,
+                _dbg,
+            },
+        })
     }
 
     /// Take control of the main loop and run the game. Periodically [Game::update] will be called, allowing you to modify the game world.
-    pub fn run(mut self) {
-        let events_loop = self.events_loop.take().unwrap();
+    pub fn run(self) -> ! {
+        let Window {
+            events_loop,
+            mut pipeline,
+            mut state,
+        } = self;
         events_loop.run(move |event, _, control_flow| {
             match event {
                 Event::WindowEvent {
                     event: WindowEvent::Resized(newsize),
                     ..
                 } => {
-                    self.update_size(newsize.width as f32, newsize.height as f32);
+                    state.dimensions = [newsize.width as f32, newsize.height as f32];
+                    pipeline.resize(state.dimensions);
                 }
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
                     ..
-                } if self.game.can_shutdown(&mut self.game_state) => {
+                } if state.game.can_shutdown(&mut state.game_state) => {
                     *control_flow = ControlFlow::Exit
                 }
                 Event::RedrawEventsCleared => {
-                    self.render_and_update();
+                    match pipeline.render(state.dimensions, &mut state.game_state) {
+                        Err(e) => {
+                            eprintln!("Engine encountered a fatal error");
+                            eprintln!();
+                            eprintln!("{:?}", e);
+                            eprintln!();
+                            eprintln!("Exiting now");
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
+                        Ok(future) => {
+                            state.update();
+                            pipeline.finish_render(future);
+                        }
+                    }
                 }
                 _ => {}
             }
             if let Event::WindowEvent { event, .. } = event {
-                self.game.event(&mut self.game_state, &event);
+                state.game.event(&mut state.game_state, &event);
                 if let WindowEvent::KeyboardInput {
                     input:
                         KeyboardInput {
-                            state,
+                            state: keystate,
                             virtual_keycode: Some(key),
                             ..
                         },
                     ..
                 } = event
                 {
-                    if state == ElementState::Pressed {
-                        self.game_state.keyboard.pressed.insert(key);
-                        self.game.keydown(&mut self.game_state, key);
+                    if keystate == ElementState::Pressed {
+                        state.game_state.keyboard.pressed.insert(key);
+                        state.game.keydown(&mut state.game_state, key);
                     } else {
-                        self.game_state.keyboard.pressed.remove(&key);
-                        self.game.keyup(&mut self.game_state, key);
+                        state.game_state.keyboard.pressed.remove(&key);
+                        state.game.keyup(&mut state.game_state, key);
                     }
                 }
             }
 
-            if !self.game_state.is_running {
+            if !state.game_state.is_running {
                 *control_flow = ControlFlow::Exit;
             }
         });
+    }
+}
+
+impl<GAME: Game + 'static> WindowState<GAME> {
+    fn update(&mut self) {
+        self.game.update(&mut self.game_state);
+
+        while let Ok(msg) = self.model_handle_receiver.try_recv() {
+            msg.apply(&mut self.game_state);
+        }
     }
 }
 

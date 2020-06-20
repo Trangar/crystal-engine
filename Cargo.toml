@@ -20,6 +20,7 @@ parking_lot = "0.10.2"
 array-init = "0.1.1"
 image = "0.23.5"
 rusttype = "0.9.2"
+thiserror = "1.0.20"
 
 # Optional dependencies, these are only included when they are needed for features
 genmesh = { version = "0.6.2", optional = true }

@@ -25,6 +25,8 @@ impl Pipeline {
         device: Arc<Device>,
         render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     ) -> Self {
+        // These should never fail, as the shaders are hard-coded and the device is assumed to be
+        // valid.
         let vs = vs::Shader::load(device.clone()).expect("failed to create shader module");
         let fs = fs::Shader::load(device.clone()).expect("failed to create shader module");
 
@@ -37,8 +39,10 @@ impl Pipeline {
                 .cull_mode_front()
                 .blend_alpha_blending()
                 .depth_stencil_simple_depth()
+                // This should never fail because the render_pass is hard-coded
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                 .build(device.clone())
+                // This should never fail because all arguments are hard-coded
                 .unwrap(),
         );
         let uniform_buffer = CpuBufferPool::<vs::ty::Data>::uniform_buffer(device.clone());
@@ -49,6 +53,7 @@ impl Pipeline {
             false,
             VERTICES.iter().cloned(),
         )
+        // This should never fail because the arguments are hard-coded
         .unwrap();
         let rect_index = CpuAccessibleBuffer::from_iter(
             device.clone(),
@@ -56,6 +61,7 @@ impl Pipeline {
             false,
             INDICES.iter().cloned(),
         )
+        // This should never fail because the arguments are hard-coded
         .unwrap();
 
         let sampler = Sampler::new(
@@ -71,6 +77,7 @@ impl Pipeline {
             0.0,
             0.0,
         )
+        // This should never fail because the arguments are hard-coded
         .unwrap();
 
         Self {
@@ -107,16 +114,22 @@ impl Pipeline {
                 element_data.dimensions.3 as f32,
             ],
         };
+        // Should never fail if we have a valid uniform buffer
         let data = self.uniform_buffer.next(data).unwrap();
 
+        // Should never fail because the pipeline and index are hard-coded
         let layout = self.pipeline.descriptor_set_layout(0).unwrap();
         let set = Arc::new(
             PersistentDescriptorSet::start(layout.clone())
                 .add_buffer(data)
+                // Should never fail because the layout and data are hard-coded
                 .unwrap()
                 .add_sampled_image(element.texture.clone(), self.sampler.clone())
+                // Should never fail because the texture should be valid and the sampler is
+                // hard-coded
                 .unwrap()
                 .build_with_pool(descriptor_pool)
+                // Should never fail because if we have a valid descriptor_pool
                 .unwrap(),
         );
         command_buffer_builder
@@ -128,6 +141,8 @@ impl Pipeline {
                 set,
                 (),
             )
+            // Should never fail because we assume the command buffer is valid, the vertices and
+            // indices are hard-coded, and the rest of the parameters are also valid
             .unwrap();
     }
 }
