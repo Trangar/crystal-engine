@@ -1,10 +1,13 @@
-use crate::model::{Material, Vertex};
+use crate::{
+    model::{Material, Vertex},
+    state::ModelError,
+};
 use std::borrow::Cow;
 
 #[cfg(feature = "format-fbx")]
-mod fbx;
+pub mod fbx;
 #[cfg(feature = "format-obj")]
-mod obj;
+pub mod obj;
 
 #[derive(Debug)]
 pub enum SourceOrShape<'a> {
@@ -25,15 +28,15 @@ pub type CowVertex = Cow<'static, [Vertex]>;
 pub type CowIndex = Cow<'static, [Cow<'static, [u32]>]>;
 
 impl SourceOrShape<'_> {
-    pub fn parse(&self) -> ParsedModel {
+    pub fn parse(&self) -> Result<ParsedModel, ModelError> {
         match self {
             #[cfg(feature = "format-obj")]
-            SourceOrShape::Obj(src) => obj::load(src),
+            SourceOrShape::Obj(src) => obj::load(src).map_err(ModelError::Obj),
 
             #[cfg(feature = "format-fbx")]
-            SourceOrShape::Fbx(src) => fbx::load(src).expect("Could not load FBX").into(),
-            SourceOrShape::Rectangle => RECTANGLE.clone().into(),
-            SourceOrShape::Triangle => TRIANGLE.clone().into(),
+            SourceOrShape::Fbx(src) => fbx::load(src).map(Into::into),
+            SourceOrShape::Rectangle => Ok(RECTANGLE.clone().into()),
+            SourceOrShape::Triangle => Ok(TRIANGLE.clone().into()),
             SourceOrShape::Dummy(_) => unreachable!(),
         }
     }

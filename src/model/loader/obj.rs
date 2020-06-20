@@ -4,9 +4,17 @@ use genmesh::EmitTriangles;
 use obj::ObjMaterial;
 use std::sync::Arc;
 
-pub fn load(src: &str) -> ParsedModel {
-    let mut obj = obj::Obj::load(std::path::Path::new(src)).expect("Could not load obj");
-    obj.load_mtls().unwrap();
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Could not load object from file: {0:?}")]
+    CouldNotLoadObj(obj::ObjError),
+    #[error("Could not load materials: {0:?}")]
+    CouldNotLoadMaterials(obj::MtlLibsLoadError),
+}
+
+pub fn load(src: &str) -> Result<ParsedModel, Error> {
+    let mut obj = obj::Obj::load(std::path::Path::new(src)).map_err(Error::CouldNotLoadObj)?;
+    obj.load_mtls().map_err(Error::CouldNotLoadMaterials)?;
     let obj::ObjData {
         position,
         texture,
@@ -62,5 +70,5 @@ pub fn load(src: &str) -> ParsedModel {
         }
     }
 
-    result
+    Ok(result)
 }

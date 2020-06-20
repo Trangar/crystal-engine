@@ -2,7 +2,8 @@ use crate::{
     gui::{GuiElementBuilder, GuiElementRef},
     internal::UpdateMessage,
     model::{ModelBuilder, ModelRef, SourceOrShape},
-    render::LightState,
+    render::lights::LightState,
+    state::GuiError,
 };
 use cgmath::{Matrix4, SquareMatrix};
 use rusttype::Font;
@@ -61,14 +62,26 @@ impl GameState {
     /// Load a font from the given relative path. This function will panic if the font does not exist.
     ///
     /// The font is not stored internally, and must be stored by the developer.
-    pub fn load_font(&mut self, font: impl AsRef<std::path::Path>) -> Font<'static> {
+    pub fn load_font(
+        &mut self,
+        font: impl AsRef<std::path::Path>,
+    ) -> Result<Font<'static>, GuiError> {
         use std::{fs::File, io::Read};
+        let font = font.as_ref();
+        let font_str = font.to_str().unwrap_or("unknown");
 
-        let mut file = File::open(font.as_ref()).unwrap();
+        let mut file = File::open(font).map_err(|e| GuiError::CouldNotReadFontFile {
+            file: font_str.to_string(),
+            inner: e,
+        })?;
         let mut content = Vec::new();
-        file.read_to_end(&mut content).unwrap();
+        file.read_to_end(&mut content)
+            .map_err(|e| GuiError::CouldNotReadFontFile {
+                file: font_str.to_string(),
+                inner: e,
+            })?;
 
-        Font::try_from_vec(content).unwrap()
+        Font::try_from_vec(content).ok_or(GuiError::CouldNotLoadFont)
     }
 
     /// Get a reference to the winit window. This can be used to set the title with `set_title`, grap the cursor with `set_cursor_grab` and `set_cursor_visible`, and more.
@@ -107,7 +120,7 @@ impl GameState {
     pub fn set_cursor_position<P: winit::dpi::Pixel>(&self, position: (P, P)) {
         self.window()
             .set_cursor_position(winit::dpi::PhysicalPosition::new(position.0, position.1))
-            .unwrap();
+            .unwrap(); // we assume this always succeeds
     }
 
     /// Exit the game. Once this function is called, it cannot be cancelled. This does not confirm with [Game::can_shutdown](trait.Game.html#method.can_shutdown).
@@ -137,13 +150,14 @@ impl GameState {
     /// ```rust,no_run
     /// # use crystal_engine::*;
     /// # let mut state: GameState = unsafe { std::mem::zeroed() };
-    /// let font = state.load_font("Roboto.ttf"); // load the font. Make sure to store this somewhere.
+    /// let font = state.load_font("Roboto.ttf").unwrap(); // load the font. Make sure to store this somewhere.
     /// let text: GuiElement = state
     ///     .new_gui_element((100, 100, 300, 80)) // x, y, width, height of the element
     ///     .with_canvas([255, 255, 255, 255]) // Turn this into a white rectangle
     ///     .with_text(&font, 32, "Hello world".into(), [0, 0, 0, 255]) // with a black text
     ///     .with_border(3, [0, 0, 0, 255]) // and a black border
-    ///     .build();
+    ///     .build()
+    ///     .unwrap();
     /// ```
     ///
     /// [GuiElementTextureBuilder]: ./state/struct.GuiElementTextureBuilder.html
@@ -165,7 +179,8 @@ impl GameState {
     /// # use crystal_engine::*;
     /// # let mut game_state: GameState = unsafe { std::mem::zeroed() };
     /// let triangle: ModelHandle = game_state.new_triangle_model()
-    ///     .build();
+    ///     .build()
+    ///     .unwrap();
     /// ```
     /// [ModelHandle]: ./struct.ModelHandle.html
     pub fn new_triangle_model(&mut self) -> ModelBuilder {
@@ -186,7 +201,8 @@ impl GameState {
     /// # let mut game_state: GameState = unsafe { std::mem::zeroed() };
     /// let rust_logo: ModelHandle = game_state.new_rectangle_model()
     ///     .with_texture_from_file("assets/rust_logo.png")
-    ///     .build();
+    ///     .build()
+    ///     .unwrap();
     /// ```
     ///
     /// [ModelHandle]: ./struct.ModelHandle.html

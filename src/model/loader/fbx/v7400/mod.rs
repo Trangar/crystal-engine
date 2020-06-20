@@ -1,9 +1,12 @@
 //! FBX v7400 support.
 
 use self::triangulator::triangulator;
-use super::data::{
-    GeometryMesh, GeometryMeshIndex, LambertData, Material, MaterialIndex, Mesh, MeshIndex, Scene,
-    ShadingData, Texture, TextureIndex, WrapMode,
+use super::{
+    data::{
+        GeometryMesh, GeometryMeshIndex, LambertData, Material, MaterialIndex, Mesh, MeshIndex,
+        Scene, ShadingData, Texture, TextureIndex, WrapMode,
+    },
+    Error,
 };
 use cgmath::{Point2, Point3, Vector3};
 use fbxcel_dom::v7400::{
@@ -14,12 +17,14 @@ use fbxcel_dom::v7400::{
     object::{self, model::TypedModelHandle, ObjectId, TypedObjectHandle},
     Document,
 };
-use std::{collections::HashMap, convert::Infallible, path::Path};
+use std::{collections::HashMap, path::Path};
 
 mod triangulator;
 
+type Result<T = ()> = std::result::Result<T, Error>;
+
 /// Loads the data from the document.
-pub fn from_doc(doc: Box<Document>) -> Result<Scene, Infallible> {
+pub fn from_doc(doc: Box<Document>) -> Result<Scene> {
     Loader::new(&doc).load()
 }
 
@@ -53,7 +58,7 @@ impl<'a> Loader<'a> {
     }
 
     /// Loads the document.
-    fn load(mut self) -> Result<Scene, Infallible> {
+    fn load(mut self) -> Result<Scene> {
         for obj in self.doc.objects() {
             if let TypedObjectHandle::Model(TypedModelHandle::Mesh(mesh)) = obj.get_typed() {
                 self.load_mesh(mesh)?;
@@ -68,17 +73,17 @@ impl<'a> Loader<'a> {
         &mut self,
         mesh_obj: object::geometry::MeshHandle<'a>,
         num_materials: usize,
-    ) -> Result<GeometryMeshIndex, Infallible> {
+    ) -> Result<GeometryMeshIndex> {
         if let Some(index) = self.geometry_mesh_indices.get(&mesh_obj.object_id()) {
             return Ok(*index);
         }
 
         let polygon_vertices = mesh_obj
             .polygon_vertices()
-            .expect("Could not load mesh polygon vertices");
+            .map_err(Error::NoPolygonVertices)?;
         let triangle_pvi_indices = polygon_vertices
             .triangulate_each(triangulator)
-            .expect("Triangulation failed");
+            .map_err(Error::CouldNotTriangulate)?;
 
         let positions = triangle_pvi_indices
             .iter_control_point_indices()
@@ -87,7 +92,7 @@ impl<'a> Loader<'a> {
             .filter_map(|p| p.cast())
             .collect::<Vec<_>>();
 
-        let layer = mesh_obj.layers().next().expect("Mesh has no layers");
+        let layer = mesh_obj.layers().next().ok_or(Error::MeshHasNoLayer)?;
 
         let normals = {
             let normals = layer
@@ -98,7 +103,7 @@ impl<'a> Loader<'a> {
                 })
                 .next()
                 .and_then(|n| n.normals().ok())
-                .expect("Mesh has no normals");
+                .ok_or(Error::MeshHasNoNormals)?;
             triangle_pvi_indices
                 .triangle_vertex_indices()
                 .filter_map(|tri_vi| {
@@ -119,7 +124,7 @@ impl<'a> Loader<'a> {
                 })
                 .next()
                 .and_then(|uv| uv.uv().ok())
-                .expect("Mesh has no UV");
+                .ok_or(Error::MeshHasNoUV)?;
             triangle_pvi_indices
                 .triangle_vertex_indices()
                 .filter_map(|tri_vi| uv.uv(&triangle_pvi_indices, tri_vi).ok())
@@ -137,7 +142,7 @@ impl<'a> Loader<'a> {
                 })
                 .next()
                 .and_then(|l| l.materials().ok())
-                .expect("Mesh has no materials");
+                .ok_or(Error::MeshHasNoMaterials)?;
             for tri_vi in triangle_pvi_indices.triangle_vertex_indices() {
                 let target = materials
                     .material_index(&triangle_pvi_indices, tri_vi)
@@ -152,12 +157,11 @@ impl<'a> Loader<'a> {
         };
 
         if positions.len() != normals.len() || positions.len() != uv.len() {
-            panic!(
-                "Vertices length mismatch: {} positions - {} normals - {} uvs",
-                positions.len(),
-                normals.len(),
-                uv.len()
-            );
+            return Err(Error::InvalidModelComponentCount {
+                positions: positions.len(),
+                normals: normals.len(),
+                uv: uv.len(),
+            });
         }
 
         let mesh = GeometryMesh {
@@ -175,7 +179,7 @@ impl<'a> Loader<'a> {
     fn load_material(
         &mut self,
         material_obj: object::material::MaterialHandle<'a>,
-    ) -> Result<MaterialIndex, Infallible> {
+    ) -> Result<MaterialIndex> {
         if let Some(index) = self.material_indices.get(&material_obj.object_id()) {
             return Ok(*index);
         }
@@ -206,7 +210,7 @@ impl<'a> Loader<'a> {
                     emissive: [emissive.r as f32, emissive.g as f32, emissive.b as f32],
                 })
             }
-            v => panic!("Unknown shading model: {:?}", v),
+            v => return Err(Error::UnknownShadingModel(v)),
         };
 
         let material = Material {
@@ -219,25 +223,22 @@ impl<'a> Loader<'a> {
     }
 
     /// Loads the mesh.
-    fn load_mesh(
-        &mut self,
-        mesh_obj: object::model::MeshHandle<'a>,
-    ) -> Result<MeshIndex, Infallible> {
+    fn load_mesh(&mut self, mesh_obj: object::model::MeshHandle<'a>) -> Result<MeshIndex> {
         if let Some(index) = self.mesh_indices.get(&mesh_obj.object_id()) {
             return Ok(*index);
         }
 
-        let geometry_obj = mesh_obj.geometry().expect("Failed to get geometry");
+        let geometry_obj = mesh_obj.geometry().map_err(Error::CouldNotLoadGeometry)?;
 
         let materials = mesh_obj
             .materials()
             .map(|material_obj| self.load_material(material_obj))
-            .collect::<Result<Vec<_>, Infallible>>()
-            .expect("Failed to load materials for mesh");
+            .collect::<Result<Vec<_>>>()
+            .map_err(|e| Error::CouldNotLoadMaterials(Box::new(e)))?;
 
         let geometry_index = self
             .load_geometry_mesh(geometry_obj, materials.len())
-            .expect("Failed to load geometry mesh");
+            .map_err(|e| Error::CouldNotLoadGeometryMesh(Box::new(e)))?;
 
         let mesh = Mesh {
             name: mesh_obj.name().map(Into::into),
@@ -253,7 +254,7 @@ impl<'a> Loader<'a> {
         &mut self,
         texture_obj: object::texture::TextureHandle<'a>,
         transparent: bool,
-    ) -> Result<TextureIndex, Infallible> {
+    ) -> Result<TextureIndex> {
         if let Some(index) = self.texture_indices.get(&texture_obj.object_id()) {
             return Ok(*index);
         }
@@ -262,7 +263,7 @@ impl<'a> Loader<'a> {
         let wrap_mode_u = {
             let val = properties
                 .wrap_mode_u_or_default()
-                .expect("Failed to load wrap mode for U axis");
+                .map_err(Error::CouldNotWrapUVAxis)?;
             match val {
                 RawWrapMode::Repeat => WrapMode::Repeat,
                 RawWrapMode::Clamp => WrapMode::ClampToEdge,
@@ -271,18 +272,16 @@ impl<'a> Loader<'a> {
         let wrap_mode_v = {
             let val = properties
                 .wrap_mode_v_or_default()
-                .expect("Failed to load wrap mode for V axis");
+                .map_err(Error::CouldNotWrapUVAxis)?;
             match val {
                 RawWrapMode::Repeat => WrapMode::Repeat,
                 RawWrapMode::Clamp => WrapMode::ClampToEdge,
             }
         };
-        let video_clip_obj = texture_obj
-            .video_clip()
-            .unwrap_or_else(|| panic!("No image data for texture object: {:?}", texture_obj));
+        let video_clip_obj = texture_obj.video_clip().ok_or(Error::MissingImageData)?;
         let image = self
             .load_video_clip(video_clip_obj)
-            .expect("Failed to load texture image");
+            .map_err(|e| Error::CouldNotLoadVideo(Box::new(e)))?;
 
         let texture = Texture {
             name: texture_obj.name().map(Into::into),
@@ -299,21 +298,19 @@ impl<'a> Loader<'a> {
     fn load_video_clip(
         &mut self,
         video_clip_obj: object::video::ClipHandle<'a>,
-    ) -> Result<image::DynamicImage, Infallible> {
+    ) -> Result<image::DynamicImage> {
         let relative_filename = video_clip_obj
             .relative_filename()
-            .expect("Failed to get relative filename of texture image");
+            .map_err(Error::CouldNotLoadVideoFile)?;
         let file_ext = Path::new(&relative_filename)
             .extension()
             .and_then(std::ffi::OsStr::to_str)
             .map(str::to_ascii_lowercase);
-        let content = video_clip_obj
-            .content()
-            .unwrap_or_else(|| panic!("Currently, only embedded texture is supported"));
+        let content = video_clip_obj.content().ok_or(Error::NoVideoContent)?;
         let image = match file_ext.as_ref().map(AsRef::as_ref) {
             Some("tga") => image::load_from_memory_with_format(content, image::ImageFormat::Tga)
-                .expect("Failed to load TGA image"),
-            _ => image::load_from_memory(content).expect("Failed to load image"),
+                .map_err(Error::CouldNotLoadTgaImage)?,
+            _ => image::load_from_memory(content).map_err(Error::CouldNotLoadVideoImage)?,
         };
 
         Ok(image)

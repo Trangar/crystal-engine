@@ -139,6 +139,7 @@ impl Into<ParsedModel> for Scene {
         let mut parts = Vec::new();
 
         for mesh in &self.meshes {
+            // we assume the mesh exists, else the parser should have returned an error
             let geometry = self.geometry_mesh(mesh.geometry_mesh_index).unwrap();
             for (i, indices) in geometry.indices_per_material.iter().enumerate() {
                 let material = self.material(mesh.materials[i]);

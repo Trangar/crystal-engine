@@ -1,4 +1,5 @@
-use super::{handle::ModelRef, Material, Vertex};
+use super::{Material, Vertex};
+use crate::GameState;
 use cgmath::{Matrix4, Rad, Zero};
 use std::{mem, sync::Arc};
 use vulkano::{
@@ -29,6 +30,8 @@ impl Pipeline {
         queue: Arc<Queue>,
         render_pass: Arc<dyn RenderPassAbstract + Send + Sync>,
     ) -> Self {
+        // The shaders are hard-coded and the device is assumed to be valid, so this should never
+        // fail
         let vs = vs::Shader::load(device.clone()).expect("failed to create shader module");
         let fs = fs::Shader::load(device.clone()).expect("failed to create shader module");
 
@@ -41,8 +44,10 @@ impl Pipeline {
                 .cull_mode_back()
                 .blend_alpha_blending()
                 .depth_stencil_simple_depth()
+                // The render pass is hard-coded so this is assumed to never fail
                 .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
                 .build(device.clone())
+                // The arguments are hard-coded so this is assumed to never fail
                 .unwrap(),
         );
         let uniform_buffer = CpuBufferPool::<vs::ty::Data>::uniform_buffer(device.clone());
@@ -61,6 +66,7 @@ impl Pipeline {
             0.0,
             0.0,
         )
+        // The arguments are hard-coded so this is assumed to never fail
         .unwrap();
 
         Self {
@@ -72,14 +78,13 @@ impl Pipeline {
             next_frame_futures: vec![fut],
         }
     }
-    pub fn render<'a>(
+
+    pub fn render(
         &mut self,
         future: &mut Box<dyn GpuFuture>,
-        models: impl Iterator<Item = &'a ModelRef>,
         command_buffer_builder: &mut AutoCommandBufferBuilder,
         dimensions: [f32; 2],
-        camera: Matrix4<f32>,
-        directional_lights: (i32, [vs::ty::DirectionalLight; 100]),
+        game_state: &GameState,
         dynamic_state: &DynamicState,
         descriptor_pool: &mut Arc<StdDescriptorPool>,
     ) {
@@ -94,9 +99,13 @@ impl Pipeline {
             100.0,
         );
 
-        let mut data = default_uniform(camera, proj, directional_lights);
+        let mut data = default_uniform(
+            game_state.camera,
+            proj,
+            game_state.light.directional.to_shader_value(),
+        );
 
-        for model in models {
+        for model in game_state.model_handles.values() {
             let model_data = model.data.read();
             let model = &model.model;
             let base_matrix = model_data.matrix();
@@ -108,6 +117,7 @@ impl Pipeline {
                     *future = tmp.join(fut).boxed();
                 }
             }
+            // The pipeline and the layout index are hard-coded so this is assumed to never fail
             let layout = self.pipeline.descriptor_set_layout(0).unwrap();
 
             for (group, group_data) in model.groups.iter().zip(model_data.groups.iter()) {
@@ -120,15 +130,19 @@ impl Pipeline {
                 data.world = (base_matrix * group_data.matrix).into();
                 update_uniform_material(&mut data, group.material.as_ref());
 
+                // The uniform_buffer is assumed to be valid so this should never fail
                 let uniform_buffer_subbuffer = self.uniform_buffer.next(data).unwrap();
 
                 let set = Arc::new(
                     PersistentDescriptorSet::start(layout.clone())
                         .add_buffer(uniform_buffer_subbuffer)
+                        // The uniform subbuffer is assumed to be valid so this should never fail
                         .unwrap()
                         .add_sampled_image(texture, self.sampler.clone())
+                        // The texture and sampler are assumed to be valid so this should never fail
                         .unwrap()
                         .build_with_pool(descriptor_pool)
+                        // The pool is assumed to be valid so this should never fail
                         .unwrap(),
                 );
 
@@ -136,6 +150,7 @@ impl Pipeline {
                     .vertex_buffer
                     .as_ref()
                     .or_else(|| model.vertex_buffer.as_ref())
+                    // This is already validated in ModelBuilder::build so this should never fail
                     .expect("Model has no valid vertex buffer");
 
                 if let Some(index) = group.index.as_ref() {
@@ -148,6 +163,8 @@ impl Pipeline {
                             set.clone(),
                             (),
                         )
+                        // the builder and arguments are assumed to be valid so this should never
+                        // fail
                         .unwrap();
                 } else {
                     command_buffer_builder
@@ -158,6 +175,8 @@ impl Pipeline {
                             set,
                             (),
                         )
+                        // the builder and arguments are assumed to be valid so this should never
+                        // fail
                         .unwrap();
                 }
             }
@@ -395,6 +414,8 @@ fn generate_empty_texture(
         R8G8B8A8Srgb,
         queue,
     )
+    // The format, dimensions are valid, and the queue is assumed to be valid, so this should
+    // never fail
     .unwrap();
     (img, fut.boxed())
 }
