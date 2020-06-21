@@ -1,7 +1,7 @@
 use crate::{error::GuiError, internal::UpdateMessage};
 use parking_lot::RwLock;
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
+    atomic::{AtomicU32, AtomicU64, Ordering},
     mpsc::Sender,
     Arc,
 };
@@ -18,6 +18,8 @@ pub struct GuiElementRef {
     pub texture_future: Option<Box<dyn GpuFuture>>,
 }
 
+static NEXT_Z_INDEX: AtomicU32 = AtomicU32::new(1);
+
 impl GuiElementRef {
     pub fn with_new_data(&self, new_data: Arc<RwLock<GuiElementData>>) -> GuiElementRef {
         GuiElementRef {
@@ -30,6 +32,12 @@ impl GuiElementRef {
 
 /// The data of a [GuiElement]. This can be used to manipulate an existing GuiElement.
 pub struct GuiElementData {
+    /// The z-index of the element on the screen.
+    /// Elements with a higher z-index are rendered on top of elements with a lower z-index.
+    ///
+    /// Elements will automatically be assigned a higher z-index than the last element created, so initially you can assume that newer elements are rendered on top.
+    pub z_index: u32,
+
     /// The dimensions of the [GuiElement].
     /// The format of this field is `(x, y, width, height)`.
     /// This means that the right edge would be `dimensions.0 + dimensions.2` and the bottom edge would be `dimensions.1 + dimensions.3`.
@@ -56,6 +64,7 @@ impl Clone for GuiElement {
         let data = self.data.read();
         let data = Arc::new(RwLock::new(GuiElementData {
             dimensions: data.dimensions,
+            z_index: data.z_index,
         }));
 
         let _ = self.internal_update.send(UpdateMessage::NewGuiElement {
@@ -97,7 +106,10 @@ impl GuiElement {
         )
         .map_err(|inner| GuiError::CouldNotCreateTexture { inner })?;
 
-        let data = Arc::new(RwLock::new(GuiElementData { dimensions }));
+        let data = Arc::new(RwLock::new(GuiElementData {
+            dimensions,
+            z_index: NEXT_Z_INDEX.fetch_add(1, Ordering::Relaxed),
+        }));
 
         Ok((
             id,

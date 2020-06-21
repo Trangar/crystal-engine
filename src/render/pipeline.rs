@@ -237,7 +237,10 @@ impl RenderPipeline {
             &mut self.descriptor_pool,
         );
 
-        for element in game_state.gui_elements.values_mut() {
+        let mut elements = game_state.gui_elements.values_mut().collect::<Vec<_>>();
+        elements.sort_by_cached_key(|e| e.data.read().z_index);
+
+        for element in elements {
             self.gui_pipeline.render_element(
                 element,
                 &mut command_buffer_builder,

@@ -1,4 +1,4 @@
-//! This is a prototype game engine, focussed on abstracting away all rendering logic and focussing purely on the game logic.
+//! This is a prototype game engine, focussed on abstracting away all rendering logic and allowing you to focussing purely on the game logic.
 //!
 //! # Example
 //!
