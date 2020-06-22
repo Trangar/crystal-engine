@@ -16,6 +16,11 @@ pub enum SourceOrShape<'a> {
     Triangle,
     Rectangle,
     Custom(ParsedModel),
+
+    // This dummy is needed to prevent compile issues when no formats are enabled because of the unused lifetime 'a
+    // This should never be constructed
+    #[allow(unused)]
+    Dummy(std::marker::PhantomData<&'a ()>),
 }
 
 impl SourceOrShape<'_> {
@@ -29,6 +34,7 @@ impl SourceOrShape<'_> {
             SourceOrShape::Rectangle => Ok(RECTANGLE.into()),
             SourceOrShape::Triangle => Ok(TRIANGLE.into()),
             SourceOrShape::Custom(model) => Ok(model),
+            SourceOrShape::Dummy(_) => unimplemented!(),
         }
     }
 }
