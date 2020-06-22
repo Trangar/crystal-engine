@@ -1,4 +1,4 @@
-use super::{CowVertex, ParsedModel, ParsedModelPart};
+use super::{ParsedModel, ParsedModelPart};
 use crate::model::{Material, Vertex};
 use genmesh::EmitTriangles;
 use obj::ObjMaterial;
@@ -30,13 +30,13 @@ pub fn load(src: &str) -> Result<ParsedModel, Error> {
         .into_iter()
         .enumerate()
         .map(|(index, position)| Vertex {
-            position_in: position,
-            tex_coord_in: texture.get(index).cloned().unwrap_or([-1.0, -1.0]),
-            normal_in: normal.get(index).cloned().unwrap_or([0.0, 0.0, 0.0]),
+            position,
+            normal: normal.get(index).cloned().unwrap_or([0.0, 0.0, 0.0]),
+            tex_coord: texture.get(index).cloned().unwrap_or([-1.0, -1.0]),
         })
         .collect();
 
-    let mut result = ParsedModel::from(CowVertex::from(vertices));
+    let mut result: ParsedModel = vertices.into();
     result
         .parts
         .reserve(objects.iter().map(|o| o.groups.len()).sum());

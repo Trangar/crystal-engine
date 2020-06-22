@@ -99,6 +99,14 @@ pub mod state {
     };
 }
 
+/// Helper structs for manual model loading
+pub mod models {
+    pub use crate::model::{
+        loader::{ParsedModel, ParsedModelPart, ParsedTexture},
+        Material, Vertex,
+    };
+}
+
 /// Re-exported module of `winit`, with some additional structs that are useful
 pub mod event {
     pub use winit::{dpi::PhysicalPosition, event::*};

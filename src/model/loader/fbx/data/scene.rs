@@ -155,14 +155,14 @@ impl Into<ParsedModel> for Scene {
                     .zip(geometry.normals.iter())
                     .zip(geometry.uv.iter())
                     .map(|((position, normal), uv)| Vertex {
-                        position_in: position.clone().into(),
-                        normal_in: normal.clone().into(),
-                        tex_coord_in: uv.clone().into(),
+                        position: position.clone().into(),
+                        normal: normal.clone().into(),
+                        tex_coord: uv.clone().into(),
                     })
                     .collect();
 
                 parts.push(ParsedModelPart {
-                    index: indices.clone().into(),
+                    index: indices.clone(),
                     material: material.cloned().map(Into::into),
                     vertices: Some(vertices),
                     texture,

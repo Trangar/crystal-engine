@@ -1,7 +1,7 @@
 use crate::{
     gui::{GuiElementBuilder, GuiElementRef},
     internal::UpdateMessage,
-    model::{ModelBuilder, ModelRef, SourceOrShape},
+    model::{loader::ParsedModel, ModelBuilder, ModelRef, SourceOrShape},
     render::lights::LightState,
     state::GuiError,
 };
@@ -208,6 +208,11 @@ impl GameState {
     /// [ModelHandle]: ./struct.ModelHandle.html
     pub fn new_rectangle_model(&mut self) -> ModelBuilder {
         ModelBuilder::new(self, SourceOrShape::Rectangle)
+    }
+
+    /// Load a model externally. This allows you to define your own model loading, with more customization options.
+    pub fn new_model(&mut self, parsed_model: ParsedModel) -> ModelBuilder {
+        ModelBuilder::new(self, SourceOrShape::Custom(parsed_model))
     }
 
     #[cfg(feature = "format-obj")]

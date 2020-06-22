@@ -102,20 +102,30 @@ impl ModelGroup {
     }
 }
 
-// TODO: Make it so that developers can create their own models/vertices?
 #[derive(Default, Copy, Clone)]
+/// A single vertex.
 pub struct Vertex {
-    pub position_in: [f32; 3],
-    pub normal_in: [f32; 3],
-    pub tex_coord_in: [f32; 2],
+    /// The position of this vertex
+    pub position: [f32; 3],
+
+    /// The normal of this vertex
+    pub normal: [f32; 3],
+
+    /// The texture coordinate of this vertex
+    pub tex_coord: [f32; 2],
 }
-vulkano::impl_vertex!(Vertex, position_in, normal_in, tex_coord_in);
+vulkano::impl_vertex!(Vertex, position, normal, tex_coord);
 
 #[derive(Copy, Clone, Debug)]
+/// The material of a model part. See the lights module for more information
 pub struct Material {
+    /// The ambient color multiplier of this material
     pub ambient: [f32; 3],
+    /// The diffuse color multiplier of this material
     pub diffuse: [f32; 3],
+    /// The specular color multiplier of this material
     pub specular: [f32; 3],
+    /// The shininess multiplier of this material
     pub shininess: f32,
 }
 
