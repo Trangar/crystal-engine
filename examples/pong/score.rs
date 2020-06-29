@@ -15,7 +15,7 @@ impl Score {
     const WHITE: [u8; 4] = [255, 255, 255, 255];
 
     pub fn new(state: &mut GameState) -> Self {
-        let font = state.load_font("assets/roboto.ttf").unwrap();
+        let font = state.load_font("examples/pong/assets/roboto.ttf").unwrap();
         Self {
             left: 0,
             left_element: Self::score_label(state, &font, Self::LEFT_POSITION, 0),

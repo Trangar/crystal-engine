@@ -14,7 +14,10 @@ impl Ball {
         Self {
             position: Vector2::zero(),
             direction: Vector2::zero(),
-            handle: state.new_obj_model("assets/ball.obj").build().unwrap(),
+            handle: state
+                .new_obj_model("examples/pong/assets/ball.obj")
+                .build()
+                .unwrap(),
         }
     }
 

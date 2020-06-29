@@ -9,7 +9,7 @@ pub struct Paddle {
 impl Paddle {
     pub fn new(state: &mut GameState) -> (Self, Self) {
         let handle = state
-            .new_obj_model("assets/paddle.obj")
+            .new_obj_model("examples/pong/assets/paddle.obj")
             .with_rotation(Euler::new(Deg(90.0).into(), Rad(0.0), Rad(0.0)))
             .build()
             .unwrap();
