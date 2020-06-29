@@ -5,9 +5,11 @@ mod ball;
 mod paddle;
 mod score;
 
-use self::ball::{Ball, BallUpdate};
-use self::paddle::Paddle;
-use self::score::Score;
+use self::{
+    ball::{Ball, BallUpdate},
+    paddle::Paddle,
+    score::Score,
+};
 
 fn main() {
     Window::<Game>::new(800., 600.).unwrap().run();
