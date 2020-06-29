@@ -40,3 +40,4 @@ dummy = [] # dummy feature for CI tools
 [[example]]
 name = "pong"
 path = "examples/pong/main.rs"
+required-features = ["format-obj"]
