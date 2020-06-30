@@ -346,3 +346,15 @@ fn test_elapsed_time() {
     assert!(state.delta() > Duration::from_secs_f32(0.1) && state.delta() < Duration::from_secs_f32(0.11));
     assert!(state.running() > Duration::from_secs_f32(0.2) && state.running() < Duration::from_secs_f32(0.21));
 }
+
+#[test]
+fn test_timestate_never_resize() {
+    let mut state = TimeState::default();
+    let cap = state.frame_times.capacity();
+    for _ in 0..cap*10 {
+        state.update();
+        assert_eq!(cap, state.frame_times.capacity());
+    }
+    assert_eq!(FRAME_TIME_COUNT, state.frame_times.len());
+}
+
