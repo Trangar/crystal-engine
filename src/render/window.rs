@@ -207,6 +207,7 @@ impl<GAME: Game + 'static> Window<GAME> {
 
 impl<GAME: Game + 'static> WindowState<GAME> {
     fn update(&mut self) {
+        self.game_state.update();
         self.game.update(&mut self.game_state);
 
         while let Ok(msg) = self.model_handle_receiver.try_recv() {

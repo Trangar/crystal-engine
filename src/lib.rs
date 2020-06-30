@@ -91,7 +91,7 @@ pub use rusttype::Font;
 pub mod state {
     pub use crate::{
         error::*,
-        game_state::KeyboardState,
+        game_state::{KeyboardState, TimeState},
         gui::{
             GuiElementBuilder, GuiElementCanvasBuilder, GuiElementData, GuiElementTextureBuilder,
         },

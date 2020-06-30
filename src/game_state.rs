@@ -8,8 +8,9 @@ use crate::{
 use cgmath::{Matrix4, SquareMatrix};
 use rusttype::Font;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     sync::{mpsc::Sender, Arc},
+    time::{Instant, Duration},
 };
 use vulkano::{
     device::{Device, Queue},
@@ -25,14 +26,22 @@ pub struct GameState {
     pub(crate) internal_update_sender: Sender<UpdateMessage>,
     pub(crate) gui_elements: HashMap<u64, GuiElementRef>,
     pub(crate) is_running: bool,
+   
     /// The matrix of the camera currently in use.
     ///
     /// It is currently not possible to change the near and far boundaries of the camera. This might be added in a later version.
     pub camera: Matrix4<f32>,
+   
     /// Get the current keyboard state.
     pub keyboard: KeyboardState,
+    
     /// The state of the lights currently in the world.
     pub light: LightState,
+
+    /// The state of the time in the game. This is where you can get the `delta` time since the
+    /// last frame.
+    pub time: TimeState,
+
     surface: Arc<Surface<winit::window::Window>>,
 }
 
@@ -55,8 +64,13 @@ impl GameState {
                 pressed: HashSet::default(),
             },
             light: LightState::new(),
+            time: TimeState::default(),
             surface,
         }
+    }
+
+    pub(crate) fn update(&mut self) {
+        self.time.update();
     }
 
     /// Load a font from the given relative path. This function will panic if the font does not exist.
@@ -253,4 +267,82 @@ impl KeyboardState {
     pub fn is_pressed(&self, key: VirtualKeyCode) -> bool {
         self.pressed.contains(&key)
     }
+}
+
+/// The time state of the game. This contains all time-based values of the engine, like the `delta`
+/// time since the last frame, the `running` time since the start of the game, and the `fps` of the
+/// last 10 frames.
+pub struct TimeState {
+    start_instant: Instant,
+    last_frame_instant: Instant,
+    next_frame_instant: Instant,
+    frame_times: VecDeque<Duration>,
+}
+
+const FRAME_TIME_COUNT: usize = 10;
+
+impl Default for TimeState {
+    fn default() -> Self {
+        let instant = Instant::now();
+        Self {
+            start_instant: instant,
+            last_frame_instant: instant,
+            next_frame_instant: instant,
+            frame_times: VecDeque::with_capacity(FRAME_TIME_COUNT),
+        }
+    }
+}
+
+impl TimeState {
+    pub(crate) fn update(&mut self) {
+        self.last_frame_instant = self.next_frame_instant;
+        self.next_frame_instant = Instant::now();
+
+        if self.frame_times.len() == FRAME_TIME_COUNT {
+            self.frame_times.pop_front();
+        }
+        self.frame_times.push_back(self.delta());
+    }
+
+    /// Get the delta time since the last frame. This is used for consistent updates throughout the
+    /// game where different screen refresh rates won't make objects move faster or slower.
+    pub fn delta(&self) -> Duration {
+        self.next_frame_instant - self.last_frame_instant
+    }
+
+    /// Get the total running time of the game. This is the time since the [GameState] has been
+    /// created.
+    pub fn running(&self) -> Duration {
+        Instant::now() - self.start_instant
+    }
+
+    /// Get the average fps of the last 10 frames. This value will be `0.0` if no frames have been
+    /// rendered yet.
+    pub fn fps(&self) -> f32 {
+        if self.frame_times.is_empty() {
+            0.0
+        } else {
+            let average_duration = self.frame_times.iter().sum::<Duration>() / (self.frame_times.len() as u32);
+            1.0 / average_duration.as_secs_f32()
+        }
+    }
+}
+
+#[test]
+fn test_elapsed_time() {
+    let mut state = TimeState::default();
+    assert!(state.fps() < std::f32::EPSILON);
+    assert_eq!(state.delta(), Duration::from_secs(0));
+
+    std::thread::sleep(Duration::from_secs_f32(0.1));
+    state.update();
+    assert!(state.fps() > 9.0 && state.fps() < 11.0);
+    assert!(state.delta() > Duration::from_secs_f32(0.1) && state.delta() < Duration::from_secs_f32(0.11));
+    assert!(state.running() > Duration::from_secs_f32(0.1) && state.running() < Duration::from_secs_f32(0.11));
+
+    std::thread::sleep(Duration::from_secs_f32(0.1));
+    state.update();
+    assert!(state.fps() > 9.0 && state.fps() < 11.0);
+    assert!(state.delta() > Duration::from_secs_f32(0.1) && state.delta() < Duration::from_secs_f32(0.11));
+    assert!(state.running() > Duration::from_secs_f32(0.2) && state.running() < Duration::from_secs_f32(0.21));
 }
