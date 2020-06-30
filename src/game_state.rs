@@ -330,35 +330,6 @@ impl TimeState {
 }
 
 #[test]
-fn test_elapsed_time() {
-    let mut state = TimeState::default();
-    assert!(state.fps() < std::f32::EPSILON);
-    assert_eq!(state.delta(), Duration::from_secs(0));
-
-    std::thread::sleep(Duration::from_secs_f32(0.1));
-    state.update();
-    assert!(
-        state.delta() > Duration::from_secs_f32(0.1)
-            && state.delta() < Duration::from_secs_f32(0.11)
-    );
-    assert!(
-        state.running() > Duration::from_secs_f32(0.1)
-            && state.running() < Duration::from_secs_f32(0.11)
-    );
-
-    std::thread::sleep(Duration::from_secs_f32(0.1));
-    state.update();
-    assert!(
-        state.delta() > Duration::from_secs_f32(0.1)
-            && state.delta() < Duration::from_secs_f32(0.11)
-    );
-    assert!(
-        state.running() > Duration::from_secs_f32(0.2)
-            && state.running() < Duration::from_secs_f32(0.21)
-    );
-}
-
-#[test]
 fn test_timestate_never_resize() {
     let mut state = TimeState::default();
     let cap = state.frame_times.capacity();
