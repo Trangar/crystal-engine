@@ -337,7 +337,6 @@ fn test_elapsed_time() {
 
     std::thread::sleep(Duration::from_secs_f32(0.1));
     state.update();
-    assert!(state.fps() > 9.0 && state.fps() < 11.0);
     assert!(
         state.delta() > Duration::from_secs_f32(0.1)
             && state.delta() < Duration::from_secs_f32(0.11)
@@ -349,7 +348,6 @@ fn test_elapsed_time() {
 
     std::thread::sleep(Duration::from_secs_f32(0.1));
     state.update();
-    assert!(state.fps() > 9.0 && state.fps() < 11.0);
     assert!(
         state.delta() > Duration::from_secs_f32(0.1)
             && state.delta() < Duration::from_secs_f32(0.11)
