@@ -10,7 +10,7 @@ use rusttype::Font;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{mpsc::Sender, Arc},
-    time::{Instant, Duration},
+    time::{Duration, Instant},
 };
 use vulkano::{
     device::{Device, Queue},
@@ -26,15 +26,15 @@ pub struct GameState {
     pub(crate) internal_update_sender: Sender<UpdateMessage>,
     pub(crate) gui_elements: HashMap<u64, GuiElementRef>,
     pub(crate) is_running: bool,
-   
+
     /// The matrix of the camera currently in use.
     ///
     /// It is currently not possible to change the near and far boundaries of the camera. This might be added in a later version.
     pub camera: Matrix4<f32>,
-   
+
     /// Get the current keyboard state.
     pub keyboard: KeyboardState,
-    
+
     /// The state of the lights currently in the world.
     pub light: LightState,
 
@@ -322,7 +322,8 @@ impl TimeState {
         if self.frame_times.is_empty() {
             0.0
         } else {
-            let average_duration = self.frame_times.iter().sum::<Duration>() / (self.frame_times.len() as u32);
+            let average_duration =
+                self.frame_times.iter().sum::<Duration>() / (self.frame_times.len() as u32);
             1.0 / average_duration.as_secs_f32()
         }
     }
@@ -337,24 +338,35 @@ fn test_elapsed_time() {
     std::thread::sleep(Duration::from_secs_f32(0.1));
     state.update();
     assert!(state.fps() > 9.0 && state.fps() < 11.0);
-    assert!(state.delta() > Duration::from_secs_f32(0.1) && state.delta() < Duration::from_secs_f32(0.11));
-    assert!(state.running() > Duration::from_secs_f32(0.1) && state.running() < Duration::from_secs_f32(0.11));
+    assert!(
+        state.delta() > Duration::from_secs_f32(0.1)
+            && state.delta() < Duration::from_secs_f32(0.11)
+    );
+    assert!(
+        state.running() > Duration::from_secs_f32(0.1)
+            && state.running() < Duration::from_secs_f32(0.11)
+    );
 
     std::thread::sleep(Duration::from_secs_f32(0.1));
     state.update();
     assert!(state.fps() > 9.0 && state.fps() < 11.0);
-    assert!(state.delta() > Duration::from_secs_f32(0.1) && state.delta() < Duration::from_secs_f32(0.11));
-    assert!(state.running() > Duration::from_secs_f32(0.2) && state.running() < Duration::from_secs_f32(0.21));
+    assert!(
+        state.delta() > Duration::from_secs_f32(0.1)
+            && state.delta() < Duration::from_secs_f32(0.11)
+    );
+    assert!(
+        state.running() > Duration::from_secs_f32(0.2)
+            && state.running() < Duration::from_secs_f32(0.21)
+    );
 }
 
 #[test]
 fn test_timestate_never_resize() {
     let mut state = TimeState::default();
     let cap = state.frame_times.capacity();
-    for _ in 0..cap*10 {
+    for _ in 0..cap * 10 {
         state.update();
         assert_eq!(cap, state.frame_times.capacity());
     }
     assert_eq!(FRAME_TIME_COUNT, state.frame_times.len());
 }
-
