@@ -24,7 +24,7 @@ thiserror = "1.0.20"
 
 # Optional dependencies, these are only included when they are needed for features
 genmesh = { version = "0.6.2", optional = true }
-obj = { version = "0.10.0", features = ["genmesh"], optional = true }
+obj = { version = "0.10.1", features = ["genmesh"], optional = true }
 fbxcel-dom = { version = "0.0.5", optional = true }
 anyhow = { version = "1", optional = true } # dependent on fbxcel-dom
 
