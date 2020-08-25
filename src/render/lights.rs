@@ -1,15 +1,15 @@
 use crate::model::vs as model_vs;
-use cgmath::{Vector3, Zero};
+use vek::Vec3;
 
 /// A direction lightsource in the world.
 ///
-/// Note: lights coming from the sky are going down, so their direction would be `Vector3::new(0.0,
+/// Note: lights coming from the sky are going down, so their direction would be `Vec3::new(0.0,
 /// -1.0, 0.0)`
 ///
 /// For more information, see the amazing tutorial at [https://learnopengl.com/Lighting/Colors](https://learnopengl.com/Lighting/Colors)
 pub struct DirectionalLight {
     /// The direction of the light source
-    pub direction: Vector3<f32>,
+    pub direction: Vec3<f32>,
     /// The color of the light source.
     pub color: LightColor,
 }
@@ -17,7 +17,7 @@ pub struct DirectionalLight {
 impl Default for DirectionalLight {
     fn default() -> Self {
         Self {
-            direction: Vector3::zero(),
+            direction: Vec3::zero(),
             color: LightColor::default(),
         }
     }
@@ -30,7 +30,7 @@ impl Default for DirectionalLight {
 /// For more information, see the amazing tutorial at [https://learnopengl.com/Lighting/Colors](https://learnopengl.com/Lighting/Colors)
 pub struct PointLight {
     /// The position of the light in the world.
-    pub position: Vector3<f32>,
+    pub position: Vec3<f32>,
     /// The color of the light in the world.
     pub color: LightColor,
 
@@ -43,7 +43,7 @@ pub struct PointLight {
 impl Default for PointLight {
     fn default() -> Self {
         Self {
-            position: Vector3::zero(),
+            position: Vec3::zero(),
             color: LightColor::default(),
             attenuation: PointLightAttenuation::default(),
         }
@@ -58,28 +58,28 @@ pub struct LightColor {
     /// To simulate this we use an ambient lighting constant that always gives the object some color.
     ///
     /// This will be merged with the ambient factor of the material of your model.
-    pub ambient: Vector3<f32>,
+    pub ambient: Vec3<f32>,
 
     /// Diffuse light simulates the directional impact a light object has on an object.
     /// This is the most visually significant component of the lighting model.
     /// The more a part of an object faces the light source, the brighter it becomes.
     ///
     /// This will be merged with the diffuse factor of the material of your model.
-    pub diffuse: Vector3<f32>,
+    pub diffuse: Vec3<f32>,
 
     /// Specular light simulates the bright spot of a light that appears on shiny objects.
     /// Specular highlights are more inclined to the color of the light than the color of the object.
     ///
     /// This will be merged with the specular factor of the material of your model.
-    pub specular: Vector3<f32>,
+    pub specular: Vec3<f32>,
 }
 
 impl Default for LightColor {
     fn default() -> Self {
         LightColor {
-            ambient: Vector3::zero(),
-            diffuse: Vector3::zero(),
-            specular: Vector3::zero(),
+            ambient: Vec3::zero(),
+            diffuse: Vec3::zero(),
+            specular: Vec3::zero(),
         }
     }
 }

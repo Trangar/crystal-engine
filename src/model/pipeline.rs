@@ -1,7 +1,7 @@
 use super::{Material, Vertex};
 use crate::GameState;
-use cgmath::{Matrix4, Rad, Zero};
 use std::{mem, sync::Arc};
+use vek::Mat4;
 use vulkano::{
     buffer::CpuBufferPool,
     command_buffer::{AutoCommandBufferBuilder, DynamicState},
@@ -92,8 +92,8 @@ impl Pipeline {
             let tmp = std::mem::replace(future, now(self.device.clone()).boxed());
             *future = tmp.join(fut).boxed();
         }
-        let proj = cgmath::perspective(
-            Rad(std::f32::consts::FRAC_PI_2),
+        let proj = Mat4::perspective_rh_zo(
+            std::f32::consts::FRAC_PI_2,
             dimensions[0] / dimensions[1],
             0.01,
             100.0,
@@ -127,7 +127,7 @@ impl Pipeline {
                     .unwrap_or(&self.empty_texture)
                     .clone();
 
-                data.world = (base_matrix * group_data.matrix).into();
+                data.world = (base_matrix * group_data.matrix).into_col_arrays();
                 update_uniform_material(&mut data, group.material.as_ref());
 
                 // The uniform_buffer is assumed to be valid so this should never fail
@@ -185,16 +185,16 @@ impl Pipeline {
 }
 
 fn default_uniform(
-    camera: Matrix4<f32>,
-    proj: Matrix4<f32>,
+    camera: Mat4<f32>,
+    proj: Mat4<f32>,
     directional_lights: (i32, [vs::ty::DirectionalLight; 100]),
 ) -> vs::ty::Data {
-    let camera_pos = -camera.z.truncate();
+    let camera_pos = -camera.cols.z.xyz();
 
     vs::ty::Data {
-        world: Matrix4::zero().into(),
-        view: camera.into(),
-        proj: proj.into(),
+        world: Mat4::zero().into_col_arrays(),
+        view: camera.into_col_arrays(),
+        proj: proj.into_col_arrays(),
         lights: directional_lights.1,
         lightCount: directional_lights.0,
 

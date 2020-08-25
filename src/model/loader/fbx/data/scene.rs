@@ -155,9 +155,9 @@ impl Into<ParsedModel> for Scene {
                     .zip(geometry.normals.iter())
                     .zip(geometry.uv.iter())
                     .map(|((position, normal), uv)| Vertex {
-                        position: position.clone().into(),
-                        normal: normal.clone().into(),
-                        tex_coord: uv.clone().into(),
+                        position: position.clone().into_array(),
+                        normal: normal.clone().into_array(),
+                        tex_coord: uv.clone().into_array(),
                     })
                     .collect();
 

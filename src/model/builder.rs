@@ -2,9 +2,9 @@ use super::{
     handle::ModelRef, loader::SourceOrShape, Model, ModelDataGroup, ModelGroup, ModelHandle,
 };
 use crate::{error::ModelError, GameState, ModelData};
-use cgmath::{Euler, Rad, Vector3, Zero};
 use parking_lot::RwLock;
 use std::sync::Arc;
+use vek::Vec3;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBuffer, CommandBufferExecFuture},
@@ -18,10 +18,10 @@ use vulkano::{
 pub struct ModelBuilder<'a> {
     game_state: &'a mut GameState,
     source_or_shape: SourceOrShape<'a>,
-    fallback_color: Option<Vector3<f32>>,
+    fallback_color: Option<Vec3<f32>>,
     texture: Option<&'a str>,
-    position: Vector3<f32>,
-    rotation: Euler<Rad<f32>>,
+    position: Vec3<f32>,
+    rotation: Vec3<f32>,
     scale: f32,
 }
 
@@ -32,14 +32,14 @@ impl<'a> ModelBuilder<'a> {
             source_or_shape,
             fallback_color: None,
             texture: None,
-            position: Vector3::zero(),
-            rotation: Euler::new(Rad(0.0), Rad(0.0), Rad(0.0)),
+            position: Vec3::zero(),
+            rotation: Vec3::zero(),
             scale: 1.0,
         }
     }
 
     /// Set the fallback color of the model in case the model has no texture
-    pub fn with_fallback_color(mut self, color: impl Into<Vector3<f32>>) -> Self {
+    pub fn with_fallback_color(mut self, color: impl Into<Vec3<f32>>) -> Self {
         self.fallback_color = Some(color.into());
         self
     }
@@ -51,13 +51,13 @@ impl<'a> ModelBuilder<'a> {
     }
 
     /// Set the initial position of the model
-    pub fn with_position(mut self, position: impl Into<Vector3<f32>>) -> Self {
+    pub fn with_position(mut self, position: impl Into<Vec3<f32>>) -> Self {
         self.position = position.into();
         self
     }
 
     /// Set the initial rotation of the model
-    pub fn with_rotation(mut self, rotation: Euler<Rad<f32>>) -> Self {
+    pub fn with_rotation(mut self, rotation: Vec3<f32>) -> Self {
         self.rotation = rotation;
         self
     }

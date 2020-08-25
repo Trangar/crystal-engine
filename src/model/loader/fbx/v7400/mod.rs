@@ -8,7 +8,6 @@ use super::{
     },
     Error,
 };
-use cgmath::{Point2, Point3, Vector3};
 use fbxcel_dom::v7400::{
     data::{
         material::ShadingModel, mesh::layer::TypedLayerElementHandle,
@@ -18,6 +17,7 @@ use fbxcel_dom::v7400::{
     Document,
 };
 use std::{collections::HashMap, path::Path};
+use vek::{Vec2, Vec3};
 
 mod triangulator;
 
@@ -88,13 +88,13 @@ impl<'a> Loader<'a> {
         let positions = triangle_pvi_indices
             .iter_control_point_indices()
             .filter_map(|cpi| cpi)
-            .filter_map(|cpi| polygon_vertices.control_point(cpi).map(Point3::from))
-            .filter_map(|p| p.cast())
+            .filter_map(|cpi| polygon_vertices.control_point(cpi).map(Vec3::<f64>::from))
+            .map(|p| p.as_())
             .collect::<Vec<_>>();
 
         let layer = mesh_obj.layers().next().ok_or(Error::MeshHasNoLayer)?;
 
-        let normals = {
+        let normals: Vec<Vec3<f32>> = {
             let normals = layer
                 .layer_element_entries()
                 .filter_map(|entry| match entry.typed_layer_element() {
@@ -109,13 +109,13 @@ impl<'a> Loader<'a> {
                 .filter_map(|tri_vi| {
                     normals
                         .normal(&triangle_pvi_indices, tri_vi)
-                        .map(Vector3::from)
+                        .map(Vec3::<f64>::from)
                         .ok()
                 })
-                .filter_map(|v| v.cast())
+                .map(|v| v.as_::<f32>())
                 .collect::<Vec<_>>()
         };
-        let uv = {
+        let uv: Vec<Vec2<f32>> = {
             let uv = layer
                 .layer_element_entries()
                 .filter_map(|entry| match entry.typed_layer_element() {
@@ -128,7 +128,7 @@ impl<'a> Loader<'a> {
             triangle_pvi_indices
                 .triangle_vertex_indices()
                 .filter_map(|tri_vi| uv.uv(&triangle_pvi_indices, tri_vi).ok())
-                .filter_map(|p| Point2::from(p).cast())
+                .map(|p| Vec2::<f64>::from(p).as_::<f32>())
                 .collect::<Vec<_>>()
         };
 

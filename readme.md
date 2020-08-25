@@ -3,7 +3,6 @@ This is a prototype game engine, focussed on abstracting away all rendering logi
 # Example
 
 ```rust
-use cgmath::{Deg, Euler, Matrix4, Point3, Rad, Vector3};
 use crystal_engine::{
     event::VirtualKeyCode, DirectionalLight, GameState, LightColor, ModelHandle, Window,
 };

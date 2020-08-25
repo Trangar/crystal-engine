@@ -5,13 +5,13 @@ use crate::{
     render::lights::LightState,
     state::GuiError,
 };
-use cgmath::{Matrix4, SquareMatrix};
 use rusttype::Font;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{mpsc::Sender, Arc},
     time::{Duration, Instant},
 };
+use vek::Mat4;
 use vulkano::{
     device::{Device, Queue},
     swapchain::Surface,
@@ -30,7 +30,7 @@ pub struct GameState {
     /// The matrix of the camera currently in use.
     ///
     /// It is currently not possible to change the near and far boundaries of the camera. This might be added in a later version.
-    pub camera: Matrix4<f32>,
+    pub camera: Mat4<f32>,
 
     /// Get the current keyboard state.
     pub keyboard: KeyboardState,
@@ -59,7 +59,7 @@ impl GameState {
             internal_update_sender: sender,
             gui_elements: HashMap::new(),
             is_running: true,
-            camera: Matrix4::identity(),
+            camera: Mat4::identity(),
             keyboard: KeyboardState {
                 pressed: HashSet::default(),
             },

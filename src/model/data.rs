@@ -1,4 +1,4 @@
-use cgmath::{Euler, Matrix4, Rad, SquareMatrix, Vector3, Zero};
+use vek::{Mat4, Vec3};
 
 /// Data of a model. This is behind an `Arc<RwLock<>>` so that the engine can keep a copy and check the latest values.
 ///
@@ -6,10 +6,10 @@ use cgmath::{Euler, Matrix4, Rad, SquareMatrix, Vector3, Zero};
 #[derive(Debug)]
 pub struct ModelData {
     /// The current position in the world that this model exists at.
-    pub position: Vector3<f32>,
+    pub position: Vec3<f32>,
 
     /// The rotation of this model, in euler angles.
-    pub rotation: Euler<Rad<f32>>,
+    pub rotation: Vec3<f32>,
 
     /// The scale of this model.
     pub scale: f32,
@@ -22,8 +22,8 @@ pub struct ModelData {
 impl Default for ModelData {
     fn default() -> ModelData {
         Self {
-            position: Vector3::zero(),
-            rotation: Euler::new(Rad(0.0), Rad(0.0), Rad(0.0)),
+            position: Vec3::zero(),
+            rotation: Vec3::zero(),
             scale: 1.0,
             groups: Vec::new(),
         }
@@ -31,22 +31,22 @@ impl Default for ModelData {
 }
 
 impl ModelData {
-    pub(crate) fn matrix(&self) -> Matrix4<f32> {
-        Matrix4::from_translation(self.position)
-            * Matrix4::from(self.rotation)
-            * Matrix4::from_scale(self.scale)
+    pub(crate) fn matrix(&self) -> Mat4<f32> {
+        Mat4::<f32>::translation_3d(self.position)
+            * Mat4::rotation_3d(1.0, self.rotation)
+            * Mat4::scaling_3d::<f32>(self.scale)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct ModelDataGroup {
-    pub matrix: Matrix4<f32>,
+    pub matrix: Mat4<f32>,
 }
 
 impl Default for ModelDataGroup {
     fn default() -> Self {
         Self {
-            matrix: Matrix4::identity(),
+            matrix: Mat4::identity(),
         }
     }
 }

@@ -3,7 +3,6 @@
 //! # Example
 //!
 //! ```no_run
-//! use cgmath::{Matrix4, Point3, Rad, Vector3};
 //! use crystal_engine::{GameState, ModelHandle, Window, event::VirtualKeyCode};
 //!
 //! fn main() {

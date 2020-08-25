@@ -1,5 +1,5 @@
-use cgmath::{Matrix4, Point3, Vector3};
 use crystal_engine::*;
+use vek::{Mat4, Vec3};
 
 mod ball;
 mod paddle;
@@ -26,10 +26,10 @@ impl crystal_engine::Game for Game {
     fn init(state: &mut GameState) -> Self {
         let (left_paddle, right_paddle) = Paddle::new(state);
 
-        state.camera = Matrix4::look_at(
-            Point3::new(0.0, 0.0, 1.0),
-            Point3::new(0.0, 0.0, 0.0),
-            Vector3::new(0.0, 1.0, 0.0),
+        state.camera = Mat4::look_at_rh(
+            Vec3::new(0.0, 0.0, 1.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
         );
 
         Self {

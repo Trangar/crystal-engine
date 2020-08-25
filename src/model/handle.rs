@@ -1,12 +1,12 @@
 use super::{Model, ModelData, ModelDataGroup};
 use crate::internal::UpdateMessage;
-use cgmath::{Euler, Rad, Vector3};
 use parking_lot::RwLock;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     mpsc::Sender,
     Arc,
 };
+use vek::Vec3;
 
 static ID: AtomicU64 = AtomicU64::new(1);
 
@@ -28,12 +28,12 @@ impl ModelHandle {
     // - rotate_by
 
     /// Get the current position of the handle. This is short for `self.read(|d| d.position)`
-    pub fn position(&self) -> Vector3<f32> {
+    pub fn position(&self) -> Vec3<f32> {
         self.read(|d| d.position)
     }
 
     /// Get the current rotation of the handle. This is short for `self.read(|d| d.rotation)`
-    pub fn rotation(&self) -> Euler<Rad<f32>> {
+    pub fn rotation(&self) -> Vec3<f32> {
         self.read(|d| d.rotation)
     }
 
