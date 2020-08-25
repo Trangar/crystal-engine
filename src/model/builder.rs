@@ -1,7 +1,7 @@
 use super::{
     handle::ModelRef, loader::SourceOrShape, Model, ModelDataGroup, ModelGroup, ModelHandle,
 };
-use crate::{error::ModelError, GameState, ModelData};
+use crate::{error::ModelError, model::ModelData, GameState};
 use cgmath::{Euler, Rad, Vector3, Zero};
 use parking_lot::RwLock;
 use std::sync::Arc;

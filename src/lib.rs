@@ -67,7 +67,6 @@
 
 #![warn(missing_docs)]
 #![allow(clippy::needless_doctest_main)]
-#![allow(clippy::borrowed_box)] // There are two incorrect suggestions for this lint: https://github.com/rust-lang/rust-clippy/issues/3971
 
 mod error;
 mod game_state;
@@ -79,11 +78,8 @@ mod render;
 pub use self::{
     game_state::GameState,
     gui::GuiElement,
-    model::{ModelBuilder, ModelData, ModelHandle},
-    render::{
-        lights::{DirectionalLight, LightColor, PointLight, PointLightAttenuation},
-        window::Window,
-    },
+    model::{ModelBuilder, ModelHandle},
+    render::window::Window,
 };
 pub use rusttype::Font;
 
@@ -95,7 +91,9 @@ pub mod state {
         gui::{
             GuiElementBuilder, GuiElementCanvasBuilder, GuiElementData, GuiElementTextureBuilder,
         },
-        render::lights::{FixedVec, LightState},
+        render::lights::{
+            DirectionalLight, FixedVec, LightColor, LightState, PointLight, PointLightAttenuation,
+        },
     };
 }
 
@@ -103,7 +101,7 @@ pub mod state {
 pub mod models {
     pub use crate::model::{
         loader::{ParsedModel, ParsedModelPart, ParsedTexture},
-        Material, Vertex,
+        Material, ModelData, Vertex,
     };
 }
 

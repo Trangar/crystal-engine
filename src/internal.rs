@@ -1,4 +1,4 @@
-use crate::{gui::GuiElementData, GameState, ModelData};
+use crate::{gui::GuiElementData, model::ModelData, GameState};
 use parking_lot::RwLock;
 use std::sync::Arc;
 
