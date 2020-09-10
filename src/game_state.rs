@@ -4,9 +4,9 @@ use crate::{
     model::{loader::ParsedModel, ModelBuilder, ModelRef, SourceOrShape},
     render::lights::LightState,
     state::GuiError,
+    Font,
 };
 use cgmath::{Matrix4, SquareMatrix};
-use rusttype::Font;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{mpsc::Sender, Arc},
@@ -76,10 +76,7 @@ impl GameState {
     /// Load a font from the given relative path. This function will panic if the font does not exist.
     ///
     /// The font is not stored internally, and must be stored by the developer.
-    pub fn load_font(
-        &mut self,
-        font: impl AsRef<std::path::Path>,
-    ) -> Result<Font<'static>, GuiError> {
+    pub fn load_font(&mut self, font: impl AsRef<std::path::Path>) -> Result<Font, GuiError> {
         use std::{fs::File, io::Read};
         let font = font.as_ref();
         let font_str = font.to_str().unwrap_or("unknown");
@@ -95,7 +92,10 @@ impl GameState {
                 inner: e,
             })?;
 
-        Font::try_from_vec(content).ok_or(GuiError::CouldNotLoadFont)
+        match rusttype::Font::try_from_vec(content) {
+            Some(font) => Ok(Arc::new(font)),
+            None => Err(GuiError::CouldNotLoadFont),
+        }
     }
 
     /// Get a reference to the winit window. This can be used to set the title with `set_title`, grap the cursor with `set_cursor_grab` and `set_cursor_visible`, and more.
@@ -167,9 +167,9 @@ impl GameState {
     /// let font = state.load_font("Roboto.ttf").unwrap(); // load the font. Make sure to store this somewhere.
     /// let text: GuiElement = state
     ///     .new_gui_element((100, 100, 300, 80)) // x, y, width, height of the element
-    ///     .with_canvas([255, 255, 255, 255]) // Turn this into a white rectangle
-    ///     .with_text(&font, 32, "Hello world".into(), [0, 0, 0, 255]) // with a black text
-    ///     .with_border(3, [0, 0, 0, 255]) // and a black border
+    ///     .canvas() // Turn this into a white rectangle
+    ///     .with_text(font.clone(), 32, "Hello world", color::BLACK) // with a black text
+    ///     .with_border(3, color::BLACK) // and a black border
     ///     .build()
     ///     .unwrap();
     /// ```

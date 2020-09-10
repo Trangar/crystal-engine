@@ -1,8 +1,6 @@
 use super::GuiElement;
-use crate::{error::GuiError, GameState};
+use crate::{error::GuiError, Font, GameState};
 use image::Pixel;
-use rusttype::Font;
-use std::borrow::Cow;
 
 /// A struct that is used to create a [GuiElement]. It is constructed by calling `GameState::add_new_element()`
 ///
@@ -32,12 +30,14 @@ impl<'a> GuiElementBuilder<'a> {
         }
     }
 
-    /// Create a gui element with a custom color. The returned [GuiElementCanvasBuilder] can be further changed to include text and borders.
-    pub fn with_canvas(self, background_color: [u8; 4]) -> GuiElementCanvasBuilder<'a, 'static> {
+    /// Create a gui element with a custom canvas. The returned [GuiElementCanvasBuilder] can be further changed to include background color, text and borders.
+    ///
+    /// The element will be completely transparent by default. Make sure to update e.g. the background color.
+    pub fn canvas(self) -> GuiElementCanvasBuilder<'a> {
         GuiElementCanvasBuilder {
             game_state: self.game_state,
             dimensions: self.dimensions,
-            color: background_color,
+            color: crate::color::TRANSPARENT,
             text: None,
             border: None,
         }
@@ -68,6 +68,7 @@ impl<'a, 'b> GuiElementTextureBuilder<'a, 'b> {
             self.dimensions,
             (image.width(), image.height(), image.into_raw()),
             self.game_state.internal_update_sender.clone(),
+            None,
         )?;
         self.game_state.gui_elements.insert(id, element_ref);
 
@@ -76,22 +77,23 @@ impl<'a, 'b> GuiElementTextureBuilder<'a, 'b> {
 }
 /// A struct that is used to render a custom texture for a [GuiElement]. This can be further customized by e.g. `.with_text` and `with_border`.
 /// Finalize this GuiElement by calling `.build()`.
-pub struct GuiElementCanvasBuilder<'a, 'b> {
+pub struct GuiElementCanvasBuilder<'a> {
     game_state: &'a mut GameState,
     dimensions: (i32, i32, u32, u32),
     color: [u8; 4],
-    text: Option<TextRequest<'b>>,
+    text: Option<TextRequest>,
     border: Option<(u16, [u8; 4])>,
 }
 
-struct TextRequest<'a> {
-    font: &'a Font<'a>,
-    font_size: u16,
-    text: Cow<'a, str>,
-    color: [u8; 4],
+#[derive(Clone)]
+pub(crate) struct TextRequest {
+    pub font: Font,
+    pub font_size: u16,
+    pub text: String,
+    pub color: [u8; 4],
 }
 
-impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
+impl<'a> GuiElementCanvasBuilder<'a> {
     /// Adds a border to the [GuiElement].
     /// This will be subtracted from the size of the element,
     /// e.g. if you have an element of 100 pixels wide with a border of 10 pixels the resulting outer width will still be 100 pixels,
@@ -100,22 +102,47 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
         self.border = Some((border_width, border_color));
         self
     }
+
+    /// Update the dimensions. This will overwrite the value passed to `new_gui_element(dimensions)`. This is mostly useful when calling `GuiElement::update_canvas`.
+    pub fn with_dimensions(mut self, dimensions: (i32, i32, u32, u32)) -> Self {
+        self.dimensions = dimensions;
+        self
+    }
+
+    /// Update the background color.
+    pub fn with_background_color(mut self, color: [u8; 4]) -> Self {
+        self.color = color;
+        self
+    }
+
     /// Add a text to the GUI element. This text will be rendered in the center of the element, and does not respect newlines.
     ///
     /// An instance of [Font](rusttype::Font) can be obtained by calling `GameState::load_font`.
     pub fn with_text(
         mut self,
-        font: &'b Font<'b>,
+        font: Font,
         font_size: u16,
-        text: Cow<'b, str>,
+        text: impl std::fmt::Display,
         color: [u8; 4],
     ) -> Self {
         self.text = Some(TextRequest {
             font,
             font_size,
-            text,
+            text: text.to_string(),
             color,
         });
+        self
+    }
+
+    /// Update the text of an element. This has to be called *after* `with_text` is called, or this method will panic. This is mostly useful when calling `GuiElement::update_canvas`.
+    pub fn with_text_content(mut self, text: impl std::fmt::Display) -> Self {
+        self.text.as_mut().unwrap().text = text.to_string();
+        self
+    }
+
+    /// Update the text color of an element. This has to be called *after* `with_text` is called, or this method will panic. This is mostly useful when calling `GuiElement::update_canvas`.
+    pub fn with_text_color(mut self, color: [u8; 4]) -> Self {
+        self.text.as_mut().unwrap().color = color;
         self
     }
 
@@ -150,7 +177,7 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
             }
         }
 
-        if let Some(request) = self.text {
+        if let Some(request) = &self.text {
             let scale = rusttype::Scale::uniform(request.font_size as f32);
             let v_metrics = request.font.v_metrics(scale);
             let glyphs: Vec<_> = request
@@ -202,6 +229,11 @@ impl<'a, 'b> GuiElementCanvasBuilder<'a, 'b> {
             self.dimensions,
             (width, height, image.into_raw()),
             self.game_state.internal_update_sender.clone(),
+            Some(super::element::CanvasConfig {
+                background: self.color,
+                border: self.border,
+                text: self.text,
+            }),
         )?;
         self.game_state.gui_elements.insert(id, element_ref);
 

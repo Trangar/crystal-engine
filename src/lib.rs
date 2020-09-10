@@ -75,13 +75,17 @@ mod internal;
 mod model;
 mod render;
 
+pub mod color;
+
 pub use self::{
     game_state::GameState,
     gui::GuiElement,
     model::{ModelBuilder, ModelHandle},
     render::window::Window,
 };
-pub use rusttype::Font;
+
+/// Reference to a Font. This is [rusttype::Font] but behind an Arc.
+pub type Font = std::sync::Arc<rusttype::Font<'static>>;
 
 /// Contains the states that are used in [GameState]. These are in a seperate module so we don't pollute the base module documentation.
 pub mod state {
