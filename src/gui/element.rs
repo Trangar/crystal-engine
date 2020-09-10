@@ -142,6 +142,18 @@ impl GuiElement {
     ///
     /// This method will panic if the current GuiElement is created as a texture
     ///
+    /// ```rust,no_run
+    /// # use crystal_engine::{GameState, GuiElement, color};
+    /// # let mut game_state: GameState = unsafe { std::mem::zeroed() };
+    /// # let font = game_state.load_font("").unwrap();
+    /// let mut gui_element: GuiElement = game_state.new_gui_element((0, 0, 100, 100))
+    ///     .canvas()
+    ///     .with_text(font.clone(), 32, "Hello world", color::WHITE)
+    ///     .build()
+    ///     .unwrap();
+    /// gui_element.update_canvas(&mut game_state, |b| b.with_text_content("Hello you!")).unwrap();
+    /// ```
+    ///
     /// [GuiElementCanvasBuilder]: ../GuiElementCanvasBuilder.html
     pub fn update_canvas(
         &mut self,
@@ -150,7 +162,8 @@ impl GuiElement {
     ) -> Result<(), GuiError> {
         let canvas_config = self.canvas_config.clone().unwrap();
         let mut builder = super::GuiElementBuilder::new(game_state, self.data.read().dimensions)
-            .with_canvas(canvas_config.background);
+            .canvas()
+            .with_background_color(canvas_config.background);
         if let Some(border) = canvas_config.border {
             builder = builder.with_border(border.0, border.1);
         }

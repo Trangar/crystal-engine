@@ -167,9 +167,9 @@ impl GameState {
     /// let font = state.load_font("Roboto.ttf").unwrap(); // load the font. Make sure to store this somewhere.
     /// let text: GuiElement = state
     ///     .new_gui_element((100, 100, 300, 80)) // x, y, width, height of the element
-    ///     .with_canvas([255, 255, 255, 255]) // Turn this into a white rectangle
-    ///     .with_text(font.clone(), 32, "Hello world", [0, 0, 0, 255]) // with a black text
-    ///     .with_border(3, [0, 0, 0, 255]) // and a black border
+    ///     .canvas() // Turn this into a white rectangle
+    ///     .with_text(font.clone(), 32, "Hello world", color::BLACK) // with a black text
+    ///     .with_border(3, color::BLACK) // and a black border
     ///     .build()
     ///     .unwrap();
     /// ```

@@ -75,6 +75,8 @@ mod internal;
 mod model;
 mod render;
 
+pub mod color;
+
 pub use self::{
     game_state::GameState,
     gui::GuiElement,

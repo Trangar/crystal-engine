@@ -10,8 +10,6 @@ pub struct Score {
 impl Score {
     const LEFT_POSITION: (i32, i32, u32, u32) = (100, 500, 100, 100);
     const RIGHT_POSITION: (i32, i32, u32, u32) = (600, 500, 100, 100);
-    const TRANSPARENT: [u8; 4] = [0, 0, 0, 0];
-    const WHITE: [u8; 4] = [255, 255, 255, 255];
 
     pub fn new(state: &mut GameState) -> Self {
         let font = state.load_font("examples/pong/assets/roboto.ttf").unwrap();
@@ -19,15 +17,15 @@ impl Score {
             left: 0,
             left_element: state
                 .new_gui_element(Self::LEFT_POSITION)
-                .with_canvas(Self::TRANSPARENT)
-                .with_text(font.clone(), 32, "0", Self::WHITE)
+                .canvas()
+                .with_text(font.clone(), 32, "0", color::WHITE)
                 .build()
                 .unwrap(),
             right: 0,
             right_element: state
                 .new_gui_element(Self::RIGHT_POSITION)
-                .with_canvas(Self::TRANSPARENT)
-                .with_text(font.clone(), 32, "0", Self::WHITE)
+                .canvas()
+                .with_text(font.clone(), 32, "0", color::WHITE)
                 .build()
                 .unwrap(),
         }

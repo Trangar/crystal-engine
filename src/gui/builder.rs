@@ -30,12 +30,14 @@ impl<'a> GuiElementBuilder<'a> {
         }
     }
 
-    /// Create a gui element with a custom color. The returned [GuiElementCanvasBuilder] can be further changed to include text and borders.
-    pub fn with_canvas(self, background_color: [u8; 4]) -> GuiElementCanvasBuilder<'a> {
+    /// Create a gui element with a custom canvas. The returned [GuiElementCanvasBuilder] can be further changed to include background color, text and borders.
+    ///
+    /// The element will be completely transparent by default. Make sure to update e.g. the background color.
+    pub fn canvas(self) -> GuiElementCanvasBuilder<'a> {
         GuiElementCanvasBuilder {
             game_state: self.game_state,
             dimensions: self.dimensions,
-            color: background_color,
+            color: crate::color::TRANSPARENT,
             text: None,
             border: None,
         }
@@ -100,6 +102,19 @@ impl<'a> GuiElementCanvasBuilder<'a> {
         self.border = Some((border_width, border_color));
         self
     }
+
+    /// Update the dimensions. This will overwrite the value passed to `new_gui_element(dimensions)`. This is mostly useful when calling `GuiElement::update_canvas`.
+    pub fn with_dimensions(mut self, dimensions: (i32, i32, u32, u32)) -> Self {
+        self.dimensions = dimensions;
+        self
+    }
+
+    /// Update the background color.
+    pub fn with_background_color(mut self, color: [u8; 4]) -> Self {
+        self.color = color;
+        self
+    }
+
     /// Add a text to the GUI element. This text will be rendered in the center of the element, and does not respect newlines.
     ///
     /// An instance of [Font](rusttype::Font) can be obtained by calling `GameState::load_font`.
@@ -119,9 +134,15 @@ impl<'a> GuiElementCanvasBuilder<'a> {
         self
     }
 
-    /// Update the text of an element. This has to be called *after* `with_text` is called. This is mostly useful when calling `GuiElement::rebuild_canvas`.
+    /// Update the text of an element. This has to be called *after* `with_text` is called, or this method will panic. This is mostly useful when calling `GuiElement::update_canvas`.
     pub fn with_text_content(mut self, text: impl std::fmt::Display) -> Self {
         self.text.as_mut().unwrap().text = text.to_string();
+        self
+    }
+
+    /// Update the text color of an element. This has to be called *after* `with_text` is called, or this method will panic. This is mostly useful when calling `GuiElement::update_canvas`.
+    pub fn with_text_color(mut self, color: [u8; 4]) -> Self {
+        self.text.as_mut().unwrap().color = color;
         self
     }
 
