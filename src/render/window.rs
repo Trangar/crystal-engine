@@ -1,5 +1,5 @@
 use super::pipeline::RenderPipeline;
-use crate::{internal::UpdateMessage, state::InitError, Game, GameState};
+use crate::{event::EventState, internal::UpdateMessage, state::InitError, Game, GameState};
 use std::sync::mpsc::{channel, Receiver};
 use vulkano::{
     device::{Device, DeviceExtensions, Features},
@@ -10,7 +10,7 @@ use vulkano::{
 };
 use vulkano_win::VkSurfaceBuild;
 use winit::{
-    event::{ElementState, Event, KeyboardInput, WindowEvent},
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
@@ -28,6 +28,7 @@ struct WindowState<GAME: Game + 'static> {
     model_handle_receiver: Receiver<UpdateMessage>,
     game: GAME,
     _dbg: Option<DebugCallback>,
+    event_state: EventState,
 }
 
 fn msg_severity(s: MessageSeverity) -> char {
@@ -131,6 +132,7 @@ impl<GAME: Game + 'static> Window<GAME> {
                 game_state,
                 game,
                 _dbg,
+                event_state: EventState::new(),
             },
         })
     }
@@ -177,25 +179,9 @@ impl<GAME: Game + 'static> Window<GAME> {
                 _ => {}
             }
             if let Event::WindowEvent { event, .. } = event {
-                state.game.event(&mut state.game_state, &event);
-                if let WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: keystate,
-                            virtual_keycode: Some(key),
-                            ..
-                        },
-                    ..
-                } = event
-                {
-                    if keystate == ElementState::Pressed {
-                        state.game_state.keyboard.pressed.insert(key);
-                        state.game.keydown(&mut state.game_state, key);
-                    } else {
-                        state.game_state.keyboard.pressed.remove(&key);
-                        state.game.keyup(&mut state.game_state, key);
-                    }
-                }
+                state
+                    .event_state
+                    .update(event, &mut state.game, &mut state.game_state);
             }
 
             if !state.game_state.is_running {

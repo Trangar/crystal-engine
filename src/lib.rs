@@ -76,6 +76,7 @@ mod model;
 mod render;
 
 pub mod color;
+pub mod event;
 
 pub use self::{
     game_state::GameState,
@@ -107,11 +108,6 @@ pub mod models {
         loader::{ParsedModel, ParsedModelPart, ParsedTexture},
         Material, ModelData, Vertex,
     };
-}
-
-/// Re-exported module of `winit`, with some additional structs that are useful
-pub mod event {
-    pub use winit::{dpi::PhysicalPosition, event::*};
 }
 
 /// The entry point of the game implementation.
