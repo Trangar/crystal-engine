@@ -1,3 +1,4 @@
+use super::builder::TextRequest;
 use crate::{error::GuiError, internal::UpdateMessage};
 use parking_lot::RwLock;
 use std::sync::{
@@ -53,6 +54,14 @@ pub struct GuiElement {
     id: u64,
     data: Arc<RwLock<GuiElementData>>,
     internal_update: Sender<UpdateMessage>,
+    canvas_config: Option<CanvasConfig>,
+}
+
+#[derive(Clone)]
+pub(crate) struct CanvasConfig {
+    pub background: [u8; 4],
+    pub border: Option<(u16, [u8; 4])>,
+    pub text: Option<TextRequest>,
 }
 
 static ID: AtomicU64 = AtomicU64::new(0);
@@ -76,6 +85,7 @@ impl Clone for GuiElement {
             id: new_id,
             data,
             internal_update: self.internal_update.clone(),
+            canvas_config: self.canvas_config.clone(),
         }
     }
 }
@@ -94,6 +104,7 @@ impl GuiElement {
         dimensions: (i32, i32, u32, u32),
         image_data: (u32, u32, Vec<u8>),
         internal_update: Sender<UpdateMessage>,
+        canvas_config: Option<CanvasConfig>,
     ) -> Result<(u64, GuiElementRef, GuiElement), GuiError> {
         let id = ID.fetch_add(1, Ordering::Relaxed);
 
@@ -122,8 +133,39 @@ impl GuiElement {
                 id,
                 data,
                 internal_update,
+                canvas_config,
             },
         ))
+    }
+
+    /// Update the canvas. This will have the exact same settings as before, you can overwrite this by calling one of the helper methods on [GuiElementCanvasBuilder].
+    ///
+    /// This method will panic if the current GuiElement is created as a texture
+    ///
+    /// [GuiElementCanvasBuilder]: ../GuiElementCanvasBuilder.html
+    pub fn update_canvas(
+        &mut self,
+        game_state: &mut crate::GameState,
+        cb: impl FnOnce(super::GuiElementCanvasBuilder) -> super::GuiElementCanvasBuilder,
+    ) -> Result<(), GuiError> {
+        let canvas_config = self.canvas_config.clone().unwrap();
+        let mut builder = super::GuiElementBuilder::new(game_state, self.data.read().dimensions)
+            .with_canvas(canvas_config.background);
+        if let Some(border) = canvas_config.border {
+            builder = builder.with_border(border.0, border.1);
+        }
+        if let Some(TextRequest {
+            font,
+            font_size,
+            text,
+            color,
+        }) = canvas_config.text
+        {
+            builder = builder.with_text(font, font_size, text, color);
+        }
+        let builder = cb(builder);
+        *self = builder.build()?;
+        Ok(())
     }
 
     /// Modify the current GuiElement.
