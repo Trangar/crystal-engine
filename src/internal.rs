@@ -41,7 +41,7 @@ impl UpdateMessage {
                 data,
             } => {
                 let old = &game_state.gui_elements[&old_id];
-                let new = old.with_new_data(data);
+                let new = old.with_new_data(new_id, data);
                 game_state.gui_elements.insert(new_id, new);
             }
         }

@@ -78,6 +78,8 @@ mod render;
 pub mod color;
 pub mod event;
 
+use gui::ElementId;
+
 pub use self::{
     game_state::GameState,
     gui::GuiElement,
@@ -94,7 +96,8 @@ pub mod state {
         error::*,
         game_state::{KeyboardState, TimeState},
         gui::{
-            GuiElementBuilder, GuiElementCanvasBuilder, GuiElementData, GuiElementTextureBuilder,
+            ElementId, GuiElementBuilder, GuiElementCanvasBuilder, GuiElementData,
+            GuiElementTextureBuilder,
         },
         render::lights::{
             DirectionalLight, FixedVec, LightColor, LightState, PointLight, PointLightAttenuation,
@@ -134,4 +137,13 @@ pub trait Game {
     /// Note that the [GameState.keyboard](struct.GameState.html#structfield.keyboard) is updated *before* this method is called.
     /// This means that `state.keyboard.is_pressed(key)` will always return `false`.
     fn keyup(&mut self, _state: &mut GameState, _key: event::VirtualKeyCode) {}
+
+    /// Triggered when a click event happens on a GUI element.
+    /// The passed [ElementId] can be compared to a [GuiElement]'s `id` method to see if that was the element.
+    fn gui_element_clicked(&mut self, _state: &mut GameState, _element: ElementId) {}
+
+    /// Occurs every time the mouse moves. The given `delta` indicates how much the mouse moved.
+    ///
+    /// [GameState].mouse.position will be updated before this function is called.
+    fn mouse_moved(&mut self, _state: &mut GameState, _delta: (f32, f32)) {}
 }

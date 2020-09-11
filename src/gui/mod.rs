@@ -4,7 +4,7 @@ mod pipeline;
 
 pub use self::{
     builder::{GuiElementBuilder, GuiElementCanvasBuilder, GuiElementTextureBuilder},
-    element::{GuiElement, GuiElementData, GuiElementRef},
+    element::{ElementId, GuiElement, GuiElementData, GuiElementRef},
     pipeline::Pipeline,
 };
 

@@ -14,6 +14,7 @@ use vulkano::{
 };
 
 pub struct GuiElementRef {
+    pub id: u64,
     pub data: Arc<RwLock<GuiElementData>>,
     pub texture: Arc<ImmutableImage<R8G8B8A8Srgb>>,
     pub texture_future: Option<Box<dyn GpuFuture>>,
@@ -22,8 +23,13 @@ pub struct GuiElementRef {
 static NEXT_Z_INDEX: AtomicU32 = AtomicU32::new(1);
 
 impl GuiElementRef {
-    pub fn with_new_data(&self, new_data: Arc<RwLock<GuiElementData>>) -> GuiElementRef {
+    pub fn with_new_data(
+        &self,
+        new_id: u64,
+        new_data: Arc<RwLock<GuiElementData>>,
+    ) -> GuiElementRef {
         GuiElementRef {
+            id: new_id,
             data: new_data,
             texture: self.texture.clone(),
             texture_future: None,
@@ -98,6 +104,10 @@ impl Drop for GuiElement {
     }
 }
 
+/// An identifier for an element. This gets passed to [Game]'s `GuiElementClicked` and can be used to compare with an [GuiElement]'s `id()` method.
+#[derive(PartialEq, Eq, Copy, Clone, Hash, Debug)]
+pub struct ElementId(pub(crate) u64);
+
 impl GuiElement {
     pub(crate) fn new(
         queue: Arc<Queue>,
@@ -125,6 +135,7 @@ impl GuiElement {
         Ok((
             id,
             GuiElementRef {
+                id,
                 data: Arc::clone(&data),
                 texture,
                 texture_future: Some(texture_future.boxed()),
@@ -136,6 +147,11 @@ impl GuiElement {
                 canvas_config,
             },
         ))
+    }
+
+    /// Get the internal ID for this element. This can be compared with an [ElementId] passed from the engine to indicate it is this element.
+    pub fn id(&self) -> ElementId {
+        ElementId(self.id)
     }
 
     /// Update the canvas. This will have the exact same settings as before, you can overwrite this by calling one of the helper methods on [GuiElementCanvasBuilder].

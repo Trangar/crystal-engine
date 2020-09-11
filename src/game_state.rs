@@ -1,5 +1,5 @@
 use crate::{
-    gui::{GuiElementBuilder, GuiElementRef},
+    gui::{ElementId, GuiElementBuilder, GuiElementRef},
     internal::UpdateMessage,
     model::{loader::ParsedModel, ModelBuilder, ModelRef, SourceOrShape},
     render::lights::LightState,
@@ -35,6 +35,9 @@ pub struct GameState {
     /// Get the current keyboard state.
     pub keyboard: KeyboardState,
 
+    /// Get the current mouse state.
+    pub mouse: MouseState,
+
     /// The state of the lights currently in the world.
     pub light: LightState,
 
@@ -60,9 +63,8 @@ impl GameState {
             gui_elements: HashMap::new(),
             is_running: true,
             camera: Matrix4::identity(),
-            keyboard: KeyboardState {
-                pressed: HashSet::default(),
-            },
+            keyboard: KeyboardState::default(),
+            mouse: MouseState::default(),
             light: LightState::new(),
             time: TimeState::default(),
             surface,
@@ -250,6 +252,24 @@ impl GameState {
     pub fn new_fbx_model<'a>(&'a mut self, path: &'a str) -> ModelBuilder<'a> {
         ModelBuilder::new(self, SourceOrShape::Fbx(path))
     }
+
+    pub(crate) fn gui_element_id_at(&self, mut location: (f32, f32)) -> Option<ElementId> {
+        // Mouse position is from the top-left, but gui elements are rendered from the bottom-left
+        // Maybe we should make the gui elements render from the top-left too....
+
+        location.1 = self.window_size().1 as f32 - location.1;
+        for element in self.gui_elements.values() {
+            let dimensions = element.data.read().dimensions;
+            let left = dimensions.0 as f32;
+            let right = dimensions.0 as f32 + dimensions.2 as f32;
+            let top = dimensions.1 as f32;
+            let bottom = dimensions.1 as f32 + dimensions.3 as f32;
+            if left < location.0 && right > location.0 && top < location.1 && bottom > location.1 {
+                return Some(ElementId(element.id));
+            }
+        }
+        None
+    }
 }
 
 /// The state of the keyboard. This can be used to check which keys are pressed during the current frame.
@@ -258,6 +278,7 @@ impl GameState {
 ///
 /// [GameState]: ../struct.GameState.html
 /// [Game]: ../trait.Game.html
+#[derive(Default)]
 pub struct KeyboardState {
     pub(crate) pressed: HashSet<VirtualKeyCode>,
 }
@@ -266,6 +287,48 @@ impl KeyboardState {
     /// Check if the given key is pressed.
     pub fn is_pressed(&self, key: VirtualKeyCode) -> bool {
         self.pressed.contains(&key)
+    }
+
+    /// Check if any of the shift keys are pressed
+    pub fn shift_pressed(&self) -> bool {
+        self.is_pressed(VirtualKeyCode::LShift) || self.is_pressed(VirtualKeyCode::RShift)
+    }
+
+    /// Check if any of the control keys are pressed
+    pub fn control_pressed(&self) -> bool {
+        self.is_pressed(VirtualKeyCode::LControl) || self.is_pressed(VirtualKeyCode::LControl)
+    }
+}
+
+/// The state of the mouse. This can be used to check where the mouse is on the screen.
+#[derive(Default)]
+pub struct MouseState {
+    pub(crate) position: (f32, f32),
+    pub(crate) left_pressed: bool,
+    pub(crate) middle_pressed: bool,
+    pub(crate) right_pressed: bool,
+}
+
+impl MouseState {
+    /// Return the X position of the mouse, from the top-left of the screen.
+    pub fn x(&self) -> f32 {
+        self.position.0
+    }
+    /// Return the Y position of the mouse, from the top-left of the screen.
+    pub fn y(&self) -> f32 {
+        self.position.1
+    }
+    /// Return true if the left mouse button was pressed
+    pub fn left_pressed(&self) -> bool {
+        self.left_pressed
+    }
+    /// Return true if the middle mouse button was pressed
+    pub fn middle_pressed(&self) -> bool {
+        self.middle_pressed
+    }
+    /// Return true if the right mouse button was pressed
+    pub fn right_pressed(&self) -> bool {
+        self.right_pressed
     }
 }
 
