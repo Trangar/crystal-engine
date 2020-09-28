@@ -1,3 +1,7 @@
+# This project is on hold while I figure out what I want to do with this engine
+
+
+
 This is a prototype game engine, focussed on abstracting away all rendering logic and focussing purely on the game logic.
 
 # Example
