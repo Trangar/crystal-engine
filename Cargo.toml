@@ -17,7 +17,7 @@ vulkano-shaders = "0.19.0"
 winit = "0.22.2"
 cgmath = { version = "0.17.0", features = ["mint"] }
 parking_lot = "0.11.0"
-array-init = "0.1.1"
+array-init = "1.0.0"
 image = "0.23.11"
 rusttype = "0.9.2"
 thiserror = "1.0.21"
