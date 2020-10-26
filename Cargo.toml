@@ -14,7 +14,7 @@ edition = "2018"
 vulkano = "0.19.0"
 vulkano-win = "0.19.0"
 vulkano-shaders = "0.19.0"
-winit = "0.22.2"
+winit = "0.23.0"
 cgmath = { version = "0.17.0", features = ["mint"] }
 parking_lot = "0.11.0"
 array-init = "1.0.0"
