@@ -901,9 +901,9 @@ dependencies = [
 
 [[package]]
 name = "obj"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d510a91cf52eab52df72ef1a87b9db96e3bb770e3148a58a39db7cdc13cd2692"
+checksum = "059c95245738cdc7b40078cdd51a23200252a4c0a0a6dd005136152b3f467a4a"
 dependencies = [
  "genmesh",
 ]
